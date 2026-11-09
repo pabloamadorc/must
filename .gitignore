@@ -1,0 +1,11 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+.httr-oauth
+.DS_Store
+*.Rcheck/
+must_*.tar.gz
+
+# Source data downloaded to rebuild data/ (see data-raw/)
+data-raw/*.xlsx

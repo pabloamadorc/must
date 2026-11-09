@@ -1,0 +1,401 @@
+---
+title: "Multiple-stressor interactions with must"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Multiple-stressor interactions with must}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+```{r setup}
+library(must)
+```
+
+Calling a combined effect additive, synergistic or antagonistic is a
+statement about a null model, not about the data alone. must separates the
+three decisions behind such a statement and makes each one visible in the
+output:
+
+1. **What the design can identify** (`describe_design()`): which treatment
+   combinations exist, which interactions they identify, which cells are
+   shared, how the experimental units were replicated and sampled, and
+   whether some stressor was applied to whole groups of units.
+2. **Which model fits the data** (`fit_responses()`): a generalised linear
+   mixed model per response, with its error distribution chosen for the
+   data and not for the null model.
+3. **What "non-additive" means** (`estimate_interactions()`): simple
+   addition (AD), multiplication (MU) or dominance (DO), each on its own
+   scale, tested from the predictions of the same model (Madge Pimentel et
+   al. 2025), with a correction for experiments with few replicates.
+
+## A worked example: insecticide, herbicide and nutrients
+
+`polazzo_zooplankton` comes from an outdoor mesocosm experiment with a full
+factorial of chlorpyrifos, diuron and nutrient enrichment, three mesocosms
+per combination (Polazzo & Rico 2021). Zooplankton were sampled five days
+before the pesticide application and on days 7, 14, 30 and 50 after it.
+Because nutrient additions started four weeks before the pesticides, day -5
+is not a pre-treatment baseline for all stressors; the example uses the four
+samplings after the application.
+
+```{r data}
+zoo <- polazzo_zooplankton[polazzo_zooplankton$day > 0, ]
+head(zoo)
+```
+
+### 1. The design
+
+```{r example-design}
+design <- describe_design(
+  zoo,
+  stressors = c("insecticide", "herbicide", "nutrients"),
+  control = c(insecticide = "absent", herbicide = "absent", nutrients = "ambient"),
+  unit = "mesocosm",
+  time = "day"
+)
+design
+design$sets[, c("set_id", "stressors", "net_identifiable", "pure_identifiable", "shared")]
+```
+
+The full factorial identifies the three pairwise interactions and both the
+net deviation and the pure interaction of the three stressors. All four sets
+share the control, and the mesocosms are measured repeatedly.
+
+### 2. One model per response
+
+Each response gets the candidates that suit its values (here positive
+densities, with zeros for *Daphnia*); the one selected is the one with the
+lowest AIC among those that converge and, by default, pass the DHARMa
+residual checks. The checks are switched off here only because the vignette
+must build without DHARMa.
+
+```{r example-fit}
+fits <- fit_responses(zoo, c("total_density", "cyclopoida", "daphnia"), design,
+                      residual_checks = FALSE, seed = 1, quiet = TRUE)
+fits
+fits$fits$total_density$selection[, c("family", "link", "converged", "aic", "selected")]
+fits$fits$daphnia$reason
+```
+
+*Daphnia* was absent from every mesocosm of some treatment combinations on
+some days. With a log link their means lie on the boundary of the parameter
+space, where intervals from the model are not valid, so they are fixed there.
+When such a combination is the one a contrast compares with its reference
+(the herbicide alone against the control, say), the contrast is tested from
+the probability of observing only zeros if the null model held
+(`status = "boundary"`); when it is a cell the null model needs to compute
+its expectation, the contrast is `not_estimable`.
+
+### 3. Null models
+
+```{r example-estimate}
+est <- estimate_interactions(fits, n_sim = 4000, seed = 2021)
+e <- est$estimates
+triple <- e[e$response == "total_density" & e$order == 3L & e$component == "interaction" &
+              e$null_model != "DO",
+            c("time", "null_model", "estimand", "estimate", "lower", "upper", "df",
+              "p_value", "p_adjusted", "status")]
+triple
+```
+
+On day 7 the net deviation of the three stressors is negative under AD and
+MU, while the pure three-way interaction is not: the deviation is carried by
+the pairwise interactions, which the full factorial lets us estimate. After
+the adjustment for the many sets and times tested, neither is significant
+with 24 mesocosms. The rows with `time = "overall"` average each effect over
+the four samplings.
+
+```{r example-pairs}
+pairs7 <- e[e$response == "total_density" & e$time == "7" & e$order == 2L &
+              e$component == "interaction" & e$null_model != "DO",
+            c("stressors", "null_model", "estimate", "lower", "upper", "p_adjusted")]
+pairs7
+summary(est)
+```
+
+### 4. Classes
+
+```{r example-classify}
+cls <- classify_interactions(est)
+table(cls$class, cls$order, useNA = "ifany")
+cls[cls$response == "total_density" & cls$time == "7" & cls$null_model == "AD",
+    c("stressors", "pattern", "class", "borderline")]
+```
+
+With the correction for small samples and the adjustment for multiple tests,
+no interaction of this experiment deviates clearly from the null models.
+
+```{r example-plot, fig.width = 7, fig.height = 4}
+plot(est, response = "total_density", null_model = "MU")
+```
+
+## Few replicates: the small-sample correction
+
+Madge Pimentel et al. (2025) obtain the uncertainty of the null-model
+contrasts by simulating the fixed effects from a normal distribution with
+their estimated covariance (Krinsky & Robb 1986). With the replication of
+most mesocosm experiments that is too optimistic: the variance is estimated
+by maximum likelihood, which underestimates it with few degrees of freedom,
+and the normal ignores the uncertainty of that estimate. In simulated 2 x 2
+experiments with three replicates per combination, the asymptotic tests
+rejected a true null model in 10–17% of the cases instead of 5%. By default
+(`correction = "small_sample"`) must refits the selected model by REML and
+draws from a multivariate t whose degrees of freedom follow the experimental
+units (column `df`). For a Gaussian model without random effects the AD
+intervals of the delta method are then exactly those of `lm()`, and the
+simulation approximates them:
+
+```{r correction}
+small <- data.frame(
+  salinity = rep(c("ambient", "high", "ambient", "high"), each = 3),
+  warming = rep(c("no", "no", "yes", "yes"), each = 3),
+  growth = c(10.2, 9.1, 10.9, 8.3, 7.4, 8.8, 7.1, 6.0, 7.6, 3.2, 4.6, 3.9)
+)
+small$jar <- seq_len(nrow(small))
+small_design <- describe_design(small, c("salinity", "warming"),
+  control = c(salinity = "ambient", warming = "no"), unit = "jar")
+small_fit <- fit_responses(small, "growth", small_design,
+  families = list(gaussian = gaussian()), residual_checks = FALSE, seed = 1, quiet = TRUE)
+interaction_row <- function(x) {
+  x$estimates[x$estimates$component == "interaction",
+              c("estimate", "lower", "upper", "df", "p_value")]
+}
+rbind(
+  delta = interaction_row(estimate_interactions(small_fit, null_models = "AD",
+                                                inference = "delta")),
+  simulation = interaction_row(estimate_interactions(small_fit, null_models = "AD",
+                                                     n_sim = 20000, seed = 1)),
+  asymptotic = interaction_row(estimate_interactions(small_fit, null_models = "AD",
+                                                     n_sim = 20000, seed = 1,
+                                                     correction = "none"))
+)
+reference <- lm(growth ~ salinity * warming, data = small)
+confint(reference)[4, ]
+summary(reference)$coefficients[4, "Pr(>|t|)"]
+```
+
+With repeated measures or subsamples the degrees of freedom are those of the
+units (units minus treatment combinations), and for stressors applied to
+whole groups of units, those of the groups. Poisson and binomial models
+without random effects have no variance to estimate and keep the normal
+distribution. `correction = "none"` gives the asymptotic procedure, for
+comparison with published analyses.
+
+## Interactions in the presence of other stressors
+
+By default each interaction is estimated with the stressors outside the set
+at control: the insecticide × herbicide interaction compares mesocosms
+without added nutrients. With `background = "all"` the design also gives the
+same interaction in the presence of each level of the other stressors, with
+that background as the reference:
+
+```{r background}
+design_all <- describe_design(zoo, c("insecticide", "herbicide", "nutrients"),
+  control = c(insecticide = "absent", herbicide = "absent", nutrients = "ambient"),
+  unit = "mesocosm", time = "day", background = "all")
+design_all$sets[, c("set_id", "stressors", "background")]
+```
+
+## When an increase means sensitivity
+
+MU and DO describe mechanisms (independent action, dominance of the
+strongest stressor) only when an increase in the response means tolerance:
+survival rather than mortality, abundance rather than damage. For responses
+measured the other way, give their names in `sensitivity`: binomial
+responses (successes out of `trials`, see `fit_responses()`) are then
+analysed as their complement, and for other responses MU and DO are reported
+as `not_applicable`.
+
+```{r sensitivity}
+jars <- data.frame(
+  copper = rep(c("no", "yes", "no", "yes"), each = 5),
+  heat = rep(c("no", "no", "yes", "yes"), each = 5),
+  dead = c(1, 0, 1, 2, 1, 3, 2, 4, 3, 3, 2, 3, 2, 1, 2, 8, 9, 10, 9, 9),
+  n = 10
+)
+jars$jar <- seq_len(nrow(jars))
+jar_design <- describe_design(jars, c("copper", "heat"),
+  control = c(copper = "no", heat = "no"), unit = "jar")
+jar_fit <- fit_responses(jars, "dead", jar_design, trials = c(dead = "n"),
+  residual_checks = FALSE, seed = 1, quiet = TRUE)
+mortality <- estimate_interactions(jar_fit, n_sim = 4000, seed = 1, sensitivity = "dead")
+mortality$estimates[mortality$estimates$component == "interaction",
+                    c("null_model", "estimate", "lower", "upper", "p_value", "note")]
+```
+
+## What a design can and cannot identify
+
+A design identifies an interaction only if it contains the control, each
+stressor alone and their combination. Many experiments are not full
+factorials. In a ray design, for example, two compounds are tested alone at
+three doses and the mixture only at matching doses:
+
+```{r ray}
+ray <- data.frame(
+  fungicide = c(0, 2, 20, 200, 0, 0, 0, 2, 20, 200),
+  insecticide = c(0, 0, 0, 0, 2, 20, 200, 2, 20, 200)
+)
+ray <- ray[rep(seq_len(nrow(ray)), each = 3), ]
+ray$mesocosm <- seq_len(nrow(ray))
+ray_design <- describe_design(
+  ray,
+  stressors = c("fungicide", "insecticide"),
+  control = c(fungicide = "0", insecticide = "0"),
+  unit = "mesocosm"
+)
+ray_design
+ray_design$sets[, c("set_id", "levels", "net_identifiable", "shared")]
+```
+
+Only the three diagonal combinations are identifiable, and all three share
+the same control: their interaction estimates are correlated, so finding the
+same class at the three doses is not three independent confirmations.
+
+### Units inside groups: blocks, whole plots and confounding
+
+A stressor is often applied to whole groups of units: one temperature per
+climate room, one nitrate level per header tank, CO2 per plot. Then the
+replication of that stressor is the number of groups, not of jars or
+mesocosms. `groups` tells `describe_design()` which columns group the units.
+Here temperature is applied to whole rooms and nutrients vary within them:
+
+```{r rooms}
+rooms <- expand.grid(temperature = c("15", "20"), room_rep = 1:2,
+                     nutrients = c("no", "yes"), jar = 1:3, stringsAsFactors = FALSE)
+rooms$room <- paste0("R", rooms$temperature, "-", rooms$room_rep)
+rooms$jar_id <- seq_len(nrow(rooms))
+one_room <- rooms[rooms$room_rep == 1, ]
+one_design <- describe_design(
+  one_room,
+  stressors = c("temperature", "nutrients"),
+  control = c(temperature = "15", nutrients = "no"),
+  unit = "jar_id", groups = "room"
+)
+one_design$groups[, c("group", "between", "structure", "groups_per_combination", "random")]
+one_design$sets[, c("stressors", "net_identifiable", "confounded")]
+```
+
+With one room per temperature, every effect of temperature, its interaction
+with nutrients included, is also a difference between two rooms: the set is
+`confounded`, and its estimates and class carry that flag. A random intercept
+for rooms cannot separate them (its variance is not identifiable), so none is
+added. With two rooms per temperature the rooms are whole plots: temperature
+effects are replicated by rooms, and `fit_responses()` adds a random
+intercept for them by default.
+
+```{r rooms-replicated}
+two_design <- describe_design(
+  rooms,
+  stressors = c("temperature", "nutrients"),
+  control = c(temperature = "15", nutrients = "no"),
+  unit = "jar_id", groups = "room"
+)
+two_design$groups[, c("group", "between", "structure", "groups_per_combination", "random")]
+```
+
+Blocks that hold every treatment combination (`structure = "blocks"`) also
+get a random intercept. The design cannot reveal groups that are not in the
+data: a shared incubator or water supply must be recorded to be checked.
+
+## Three or more stressors: net deviation and pure interaction
+
+With three stressors, the deviation of ABC from the combination of the
+single effects (the **net** deviation) includes the pairwise interactions
+AB, AC and BC. The **pure** third-order interaction is what remains once
+those are removed, and it needs all eight combinations. In this simulated
+2 x 2 x 2 experiment the pure interaction is negative, but part of the net
+deviation comes from the pairwise terms:
+
+```{r three-way}
+grid <- expand.grid(nitrate = c("ambient", "high"), sediment = c("no", "yes"),
+                    flow = c("normal", "low"), stringsAsFactors = FALSE)
+n <- grid$nitrate == "high"
+s <- grid$sediment == "yes"
+f <- grid$flow == "low"
+grid$mean <- 20 - 3 * n - 4 * s - 2 * f + 1.5 * n * s - n * f + 0.5 * s * f -
+  2.5 * n * s * f
+streams <- grid[rep(seq_len(8), each = 4), ]
+streams$biomass <- streams$mean * rep(c(0.95, 1.02, 0.98, 1.05), 8)
+streams$channel <- seq_len(nrow(streams))
+stream_design <- describe_design(
+  streams,
+  stressors = c("nitrate", "sediment", "flow"),
+  control = c(nitrate = "ambient", sediment = "no", flow = "normal"),
+  unit = "channel"
+)
+stream_fit <- fit_responses(streams, "biomass", stream_design,
+  families = list(gaussian = gaussian()), residual_checks = FALSE, quiet = TRUE)
+stream_est <- estimate_interactions(stream_fit, null_models = "AD",
+  inference = "delta")
+int <- stream_est$estimates[stream_est$estimates$component == "interaction", ]
+int[, c("stressors", "estimand", "estimate", "lower", "upper")]
+```
+
+The net deviation of the triple equals its pure interaction plus the three
+pairwise interactions. If the design lacked the pairwise combinations, the
+pure interaction would be reported as `not_identifiable` and
+`describe_design()` would warn that the net deviation cannot be split.
+
+## Decisions and their arguments
+
+| Decision | Argument | Default |
+|---|---|---|
+| Level that means "no stressor" | `control` in `describe_design()` | none (required) |
+| Experimental unit | `unit` | each row |
+| Pre-treatment samplings | `baseline` | none |
+| Groups of units (blocks, whole plots, rooms) | `groups` | none |
+| Other stressors in each interaction | `background` | at control |
+| Candidate error distributions | `families`, `response_types` | chosen from the values of each response |
+| Successes out of a number of trials | `trials` | none |
+| Sampling effort | `offset` | none |
+| One dispersion for all, per `by` group or per combination | `dispersion` | `"common"` |
+| Treatment effects constant over time? | `time_structure` | `"interaction"` (not constant) |
+| Random effects | `random` | intercept per estimable group and per unit when units repeat; removed if its variance is estimated at zero |
+| Optimiser limits | `control` | 20 iterations and 30 evaluations per fixed effect |
+| Residual checks in the selection | `residual_checks` | `TRUE` (needs DHARMa) |
+| Null models | `null_models` | AD, MU and DO |
+| Uncertainty | `inference`, `n_sim` | Krinsky–Robb simulation, 10000 draws |
+| Small-sample correction | `correction` | REML and t distribution |
+| Responses where more means worse | `sensitivity` | none |
+| Averages over times | `overall` | `TRUE` |
+| Multiple testing | `p_adjust` | Benjamini–Hochberg |
+| Random numbers | `seed` | drawn and stored in `settings$seed` |
+
+## What a class means
+
+`classify_interactions()` follows Table 1 of Piggott et al. (2015) under AD
+and MU. For three or more stressors the same rules are applied to the net
+deviation and its k single effects, a generalization made by this package.
+"AD" means that no deviation was detected, not that additivity was shown;
+under MU, synergism and antagonism are relative to the multiplicative
+expectation. `borderline = TRUE` marks classes whose adjusted p-values are
+so close to `alpha` that another seed could change them. MU and DO only
+represent their mechanistic assumptions when an increase in the response
+means tolerance (survival, abundance), and AD can predict impossible
+negative values (flagged as `expected_below_zero`), in which case a deviation
+from it says little about the mechanism (Madge Pimentel et al. 2025).
+
+## References
+
+Krinsky, I., & Robb, A. L. (1986). On approximating the statistical
+properties of elasticities. *The Review of Economics and Statistics*, 68(4),
+715–719. <https://doi.org/10.2307/1924536>
+
+Madge Pimentel, I., Albini, D., Beermann, A. J., Leese, F., Macaulay, S. J.,
+Matthaei, C. D., Orr, J. A., Piggott, J. J., & Schäfer, R. B. (2025).
+Hypothesis-driven research on multiple stressors: An analytical framework for
+stressor interactions. *Ecology and Evolution*, 15, e71959.
+<https://doi.org/10.1002/ece3.71959>
+
+Piggott, J. J., Townsend, C. R., & Matthaei, C. D. (2015). Reconceptualizing
+synergism and antagonism among multiple stressors. *Ecology and Evolution*,
+5(7), 1538–1547. <https://doi.org/10.1002/ece3.1465>
+
+Polazzo, F., & Rico, A. (2021). Effects of multiple stressors on the
+dimensionality of ecological stability. *Ecology Letters*, 24(8), 1594–1606.
+<https://doi.org/10.1111/ele.13770>. Data: <https://doi.org/10.5061/dryad.qfttdz0gt>
+(CC0 1.0).

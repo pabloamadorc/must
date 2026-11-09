@@ -1,0 +1,37 @@
+bibentry(
+  bibtype = "Manual",
+  title = "must: Multiple-Stressor Interactions Under Alternative Null Models",
+  author = person("Pablo", "Amador Crespo"),
+  year = "2026",
+  note = sprintf("R package version %s", meta$Version),
+  url = "https://github.com/pabloamadorc/must",
+  textVersion = sprintf(
+    paste(
+      "Amador Crespo, P. (2026). must: Multiple-Stressor Interactions Under",
+      "Alternative Null Models. R package version %s.",
+      "https://github.com/pabloamadorc/must"
+    ),
+    meta$Version
+  )
+)
+
+bibentry(
+  bibtype = "Article",
+  header = "The null models and the post-estimation framework follow:",
+  title = paste(
+    "Hypothesis-driven research on multiple stressors: An analytical",
+    "framework for stressor interactions"
+  ),
+  author = c(
+    person("Iris", "Madge Pimentel"), person("Dania", "Albini"),
+    person(c("Arne", "J."), "Beermann"), person("Florian", "Leese"),
+    person(c("Samuel", "J."), "Macaulay"), person(c("Christoph", "D."), "Matthaei"),
+    person(c("James", "A."), "Orr"), person(c("Jeremy", "J."), "Piggott"),
+    person(c("Ralf", "B."), "Schäfer")
+  ),
+  journal = "Ecology and Evolution",
+  year = "2025",
+  volume = "15",
+  pages = "e71959",
+  doi = "10.1002/ece3.71959"
+)

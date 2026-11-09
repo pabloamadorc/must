@@ -1,0 +1,44 @@
+Package: must
+Title: Multiple-Stressor Interactions Under Alternative Null Models
+Version: 0.1.0
+Authors@R:
+    person("Pablo", "Amador Crespo", email = "pamadorc@gmail.com", role = c("aut", "cre"))
+Description: Detects and classifies non-additive effects of multiple stressors in
+    experiments. Before any model is fitted, the design is described: missing
+    treatment combinations, cells shared by several contrasts, replication
+    units and repeated measures, and which interactions it identifies. A
+    generalised linear mixed model is then fitted to each response, choosing
+    its error distribution by convergence, simulation-based residual checks
+    and AIC, and interactions are tested from its adjusted predictions
+    against the simple addition, multiplicative and dominance null models,
+    following the post-estimation inference framework of Madge Pimentel et al.
+    (2025) <doi:10.1002/ece3.71959>, by default with a small-sample correction
+    (restricted maximum likelihood and t distributions with the degrees of
+    freedom of the experimental units). Combinations with only zeros are
+    tested from the probability of that outcome. For three or more stressors
+    the net deviation from the single-stressor effects is distinguished from
+    the pure highest-order interaction. Interactions can be classified with
+    the directional scheme of Piggott et al. (2015) <doi:10.1002/ece3.1465>.
+License: MIT + file LICENSE
+URL: https://github.com/pabloamadorc/must
+BugReports: https://github.com/pabloamadorc/must/issues
+Encoding: UTF-8
+Language: en-US
+Roxygen: list(markdown = TRUE)
+Depends:
+    R (>= 3.6.0)
+Imports:
+    glmmTMB,
+    graphics,
+    stats,
+    utils,
+    withr
+Suggests:
+    DHARMa,
+    knitr,
+    rmarkdown,
+    testthat (>= 3.0.0)
+VignetteBuilder: knitr
+Config/testthat/edition: 3
+RoxygenNote: 7.3.1
+LazyData: true
