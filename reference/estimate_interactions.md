@@ -733,14 +733,14 @@ est
 #> Inference: Krinsky-Robb simulation (2000 draws), small-sample correction (REML, t); 95% intervals; p-values adjusted with BH; seed 1
 #> Scales: AD = differences (response scale)
 #> Interactions (1 rows):
-#>  response                 combination model estimand estimate lower upper df
-#>     algae salinity=high + warming=yes    AD      net      9.8 0.783  19.3 16
+#>  response                 combination model estimand estimate lower upper  df
+#>     algae salinity=high + warming=yes    AD      net      9.8  1.47  18.5 Inf
 #>  p_adj status
-#>  0.035     ok
+#>  0.016     ok
 est$estimates[est$estimates$component == "interaction",
   c("null_model", "estimate", "lower", "upper", "df", "p_adjusted")]
-#>   null_model estimate    lower    upper df p_adjusted
-#> 4         AD      9.8 0.782748 19.30277 16      0.035
+#>   null_model estimate    lower    upper  df p_adjusted
+#> 4         AD      9.8 1.471868 18.47447 Inf      0.016
 # The three null models and the procedure of Madge Pimentel et al. (2025),
 # without the correction
 estimate_interactions(fits, null_models = c("AD", "MU", "DO"), n_sim = 2000,
@@ -762,19 +762,19 @@ eq <- estimate_interactions(fits, null_models = c("AD", "MU"), n_sim = 2000, see
   margin = 0.1)
 eq$estimates[eq$estimates$component == "interaction",
   c("null_model", "relative", "relative_lower", "relative_upper", "p_equivalence")]
-#>   null_model     relative relative_lower relative_upper p_equivalence
-#> 4         AD  0.246231156     0.02237831      0.4369641     0.9145769
-#> 8         MU -0.001262594    -0.12707548      0.1096770     0.0560537
+#>   null_model    relative relative_lower relative_upper p_equivalence
+#> 4         AD  0.24623114      0.0403576     0.42205268    0.92420415
+#> 8         MU -0.00126261     -0.1144368     0.09664942    0.04634745
 classify_interactions(eq)[, c("null_model", "class", "verdict")]
-#>   null_model class      verdict
-#> 1         AD    -A    deviation
-#> 2         MU    AD inconclusive
+#>   null_model class    verdict
+#> 1         AD    -A  deviation
+#> 2         MU    AD equivalent
 # Bliss independence, with its rescaled interaction
 bl <- estimate_interactions(fits, null_models = "BL", n_sim = 2000, seed = 1)
 bl$estimates[bl$estimates$component == "interaction",
   c("estimate", "lower", "upper", "p_value", "rescaled", "rescaled_class")]
-#>       estimate      lower    upper p_value rescaled rescaled_class
-#> 4 -0.001262594 -0.1270755 0.109677   0.966   -0.005       additive
+#>      estimate      lower      upper p_value    rescaled rescaled_class
+#> 4 -0.00126261 -0.1144368 0.09664942   0.967 -0.00500006       additive
 # A model fitted outside must
 model <- stats::glm(algae ~ salinity * warming, family = stats::poisson(), data = jars)
 estimate_interactions(model, design, null_models = c("AD", "MU", "BL"), n_sim = 2000,
