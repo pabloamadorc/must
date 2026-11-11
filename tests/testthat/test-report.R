@@ -292,3 +292,54 @@ test_that("the pieces of the report are written correctly", {
   expect_length(refs$formatted(), 1L)
   expect_error(refs$cite("nobody2000"), class = "must_error_internal")
 })
+
+test_that("manuals are cited with their organization as text and their DOI", {
+  title <- "R: A Language and Environment for Statistical Computing"
+  expect_identical(
+    bib_text(utils::person("R Foundation for Statistical Computing",
+                           comment = c(ROR = "05qewa988"))),
+    "R Foundation for Statistical Computing"
+  )
+  expect_identical(bib_text("Vienna, Austria"), "Vienna, Austria")
+  expect_null(bib_text(NULL))
+  old <- utils::bibentry("Manual", title = title, author = utils::person("R Core Team"),
+                         organization = "R Foundation for Statistical Computing",
+                         address = "Vienna, Austria", year = "2024",
+                         url = "https://www.R-project.org/")
+  expect_identical(bib_reference(old), list(
+    who = "R Core Team", year = "2024",
+    full = paste("R Core Team (2024). *R: A Language and Environment for Statistical",
+                 "Computing*. R Foundation for Statistical Computing, Vienna, Austria.",
+                 "<https://www.R-project.org/>")
+  ))
+  with_doi <- utils::bibentry("Manual", title = title, author = utils::person("R Core Team"),
+                              year = "2026", doi = "10.32614/R.manuals",
+                              url = "https://www.R-project.org/")
+  expect_match(bib_reference(with_doi)$full, "Computing*. <https://doi.org/10.32614/R.manuals>",
+               fixed = TRUE)
+  # The citation of the R that runs the tests (from R 4.6, with a ROR
+  # identifier for its organization and a DOI)
+  r <- report_reference("R")
+  expect_match(r$full, "R Foundation for Statistical Computing, Vienna, Austria.",
+               fixed = TRUE)
+  expect_false(grepl("ROR|05qewa988", r$full))
+})
+
+test_that("the organization of the citation of R from R 4.6 is cited by its name", {
+  new <- utils::bibentry(
+    "Manual", title = "R: A Language and Environment for Statistical Computing",
+    author = utils::person("R Core Team", comment = c(ROR = "02zz1nj61")),
+    organization = utils::person("R Foundation for Statistical Computing",
+                                 comment = c(ROR = "05qewa988")),
+    address = "Vienna, Austria", year = "2026", doi = "10.32614/R.manuals",
+    url = "https://www.R-project.org/"
+  )
+  if (!inherits(new$organization, "person")) {
+    skip("before R 4.6, bibentry() turns a person in other fields into text")
+  }
+  expect_identical(bib_reference(new)$full, paste(
+    "R Core Team (2026). *R: A Language and Environment for Statistical Computing*.",
+    "R Foundation for Statistical Computing, Vienna, Austria.",
+    "<https://doi.org/10.32614/R.manuals>"
+  ))
+})

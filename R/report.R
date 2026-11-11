@@ -296,15 +296,32 @@ bib_full <- function(b) {
   } else {
     paste0(paste(authors[-length(authors)], collapse = ", "), ", & ", authors[[length(authors)]])
   }
-  publisher <- c(b$organization, b$address)
+  publisher <- c(bib_text(b$organization), bib_text(b$address))
+  link <- if (!is.null(b$doi)) {
+    sprintf("<https://doi.org/%s>", b$doi)
+  } else if (!is.null(b$url)) {
+    sprintf("<%s>", b$url)
+  }
   pieces <- c(
     sprintf("%s (%s).", authors, if (is.null(b$year)) "n.d." else b$year),
     sprintf("*%s*.", sub("\\.$", "", b$title)),
     if (!is.null(b$note)) sprintf("%s.", sub("\\.$", "", b$note)),
     if (length(publisher) > 0L) sprintf("%s.", paste(publisher, collapse = ", ")),
-    if (!is.null(b$url)) sprintf("<%s>", b$url)
+    link
   )
   paste(pieces, collapse = " ")
+}
+
+# Text of a field of a bibentry. From R 4.6, the citation of R gives its
+# organization as a person with a ROR identifier: only its name is kept.
+bib_text <- function(x) {
+  if (is.null(x)) {
+    return(NULL)
+  }
+  if (inherits(x, "person")) {
+    return(format(x, include = c("given", "family")))
+  }
+  as.character(x)
 }
 
 # The citation of an installed package, or a fallback without a year.
