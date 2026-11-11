@@ -1,0 +1,11 @@
+pandoc: 3.8.3
+pkgdown: 2.2.1
+pkgdown_sha: ~
+articles:
+  articles/case-studies: case-studies.html
+  mesocosms: mesocosms.html
+  must: must.html
+last_built: 2026-11-11T07:53Z
+urls:
+  reference: https://pabloamadorc.github.io/must/reference
+  article: https://pabloamadorc.github.io/must/articles
