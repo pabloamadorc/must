@@ -1,7 +1,7 @@
 bibentry(
   bibtype = "Manual",
   title = "must: Multiple-Stressor Interactions Under Alternative Null Models",
-  author = person("Pablo", "Amador Crespo"),
+  author = person("Pablo", "Amador Crespo", comment = c(ORCID = "0000-0002-3793-8794")),
   year = "2026",
   note = sprintf("R package version %s", meta$Version),
   url = "https://github.com/pabloamadorc/must",

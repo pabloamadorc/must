@@ -24,6 +24,13 @@ abort_input <- function(message, ..., class = character(), call = sys.call(-1)) 
   ))
 }
 
+# Call of an S3 method as the user wrote it, with the name of the generic
+# instead of that of the method, for error messages.
+generic_call <- function(generic, call = sys.call(-1)) {
+  call[[1L]] <- as.name(generic)
+  call
+}
+
 # Signal a bug: an internal invariant does not hold.
 abort_internal <- function(message, call = sys.call(-1)) {
   stop(errorCondition(

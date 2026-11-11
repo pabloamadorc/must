@@ -214,7 +214,7 @@ test_that("Krinsky-Robb simulation agrees with the delta method and gives DO", {
   d <- two_by_two_counts()
   fit <- fit_2x2(d, "count", list(poisson = stats::poisson()))
   delta <- estimate_interactions(fit, null_models = c("AD", "MU"), inference = "delta")
-  sim <- estimate_interactions(fit, n_sim = 20000, seed = 42)
+  sim <- estimate_interactions(fit, null_models = c("AD", "MU", "DO"), n_sim = 20000, seed = 42)
   expect_equal(interaction_rows(sim, "MU")$se, interaction_rows(delta, "MU")$se,
                tolerance = 0.03)
   do <- interaction_rows(sim, "DO")
@@ -235,11 +235,30 @@ test_that("a seed makes the simulation reproducible and restores the RNG state",
   expect_identical(a$estimates, b$estimates)
 })
 
+test_that("AD is the default and each null model ignores the others requested", {
+  d <- two_by_two_counts()
+  fit <- fit_2x2(d, "count", list(poisson = stats::poisson()))
+  default <- estimate_interactions(fit, n_sim = 500, seed = 7)
+  expect_identical(default$settings$null_models, "AD")
+  expect_identical(unique(default$estimates$null_model), "AD")
+  several <- estimate_interactions(fit, null_models = c("SAM", "MU", "AD", "DO"), n_sim = 500,
+                                   seed = 7)
+  # Returned in the canonical order, whatever the order requested
+  expect_identical(several$settings$null_models, c("AD", "MU", "DO", "SAM"))
+  ad <- several$estimates[several$estimates$null_model == "AD", ]
+  rownames(ad) <- NULL
+  expect_identical(ad, default$estimates)
+  mu <- estimate_interactions(fit, null_models = "MU", n_sim = 500, seed = 7)$estimates
+  mu_several <- several$estimates[several$estimates$null_model == "MU", ]
+  rownames(mu) <- rownames(mu_several) <- NULL
+  expect_identical(mu_several, mu)
+})
+
 test_that("the delta method is refused for the dominance model", {
   d <- two_by_two_counts()
   fit <- fit_2x2(d, "count", list(poisson = stats::poisson()))
-  expect_error(estimate_interactions(fit, inference = "delta"), "dominance",
-               class = "must_error_input")
+  expect_error(estimate_interactions(fit, null_models = c("AD", "DO"), inference = "delta"),
+               "dominance", class = "must_error_input")
   expect_error(estimate_interactions(fit, null_models = "XX"), class = "must_error_input")
 })
 
@@ -386,7 +405,7 @@ test_that("a combination with only zeros is tested from the probability of zeros
   d <- zero_combination_counts()
   fit <- fit_2x2(d, "y", list(poisson = stats::poisson()))
   expect_equal(unname(fit$fits$y$boundary), "zero")
-  est <- estimate_interactions(fit, n_sim = 2000, seed = 1)
+  est <- estimate_interactions(fit, null_models = c("AD", "MU", "DO"), n_sim = 2000, seed = 1)
   ad <- interaction_rows(est, "AD")
   expect_equal(ad$status, "boundary")
   expect_equal(ad$inference, "boundary test")
@@ -475,7 +494,8 @@ test_that("binomial responses with trials and the complement for sensitivity", {
   expect_equal(m$p_value, s$p_value, tolerance = 1e-5)
   raw <- mortality$estimates[mortality$estimates$response == "alive", ]
   expect_false(any(grepl("complement", raw$note)))
-  sim <- estimate_interactions(fit, n_sim = 2000, seed = 2, sensitivity = "dead")
+  sim <- estimate_interactions(fit, null_models = c("AD", "MU", "DO"), n_sim = 2000, seed = 2,
+                               sensitivity = "dead")
   do <- sim$estimates[sim$estimates$response == "dead" & sim$estimates$null_model == "DO", ]
   expect_equal(do$status, "ok")
 })
@@ -483,7 +503,8 @@ test_that("binomial responses with trials and the complement for sensitivity", {
 test_that("sensitivity of a non-binomial response makes MU and DO not applicable", {
   d <- two_by_two_counts()
   fit <- fit_2x2(d, "count", list(poisson = stats::poisson()))
-  est <- estimate_interactions(fit, n_sim = 500, seed = 1, sensitivity = "count")
+  est <- estimate_interactions(fit, null_models = c("AD", "MU", "DO"), n_sim = 500, seed = 1,
+                               sensitivity = "count")
   e <- est$estimates
   expect_true(all(e$status[e$null_model %in% c("MU", "DO")] == "not_applicable"))
   expect_true(all(e$status[e$null_model == "AD"] == "ok"))
@@ -581,4 +602,297 @@ test_that("a design-level reason comes before a data-level one", {
   expect_equal(rows$status[rows$estimand == "net"], "not_estimable")
   expect_match(rows$reason[rows$estimand == "net"], "No values of the response in 'n=1'",
                fixed = TRUE)
+})
+
+test_that("Bliss estimates and delta standard errors match hand calculations", {
+  d <- two_by_two_counts()
+  fit <- fit_2x2(d, "count", list(poisson = stats::poisson()))
+  est <- estimate_interactions(fit, null_models = c("MU", "BL"), inference = "delta")
+  bl <- est$estimates[est$estimates$null_model == "BL", ]
+  # Cell means 20, 10, 14 and 5: w = (1, 0.5, 0.7, 0.25)
+  w <- c(1, 0.5, 0.7, 0.25)
+  expect_equal(bl$estimate, c(-0.5, -0.3, -0.75, 0.25 - 0.35), tolerance = 1e-5)
+  expect_equal(bl$scale, rep("response / control", 4))
+  int <- bl[bl$component == "interaction", ]
+  expect_equal(int$expected, 20 * 0.35, tolerance = 1e-5)
+  expect_equal(int$rescaled, -0.1 / 0.35, tolerance = 1e-4)
+  expect_equal(int$rescaled_class, "additive")
+  # Poisson with a log link: var(eta) = 1 / cell total; gradient of
+  # wAB - wA wB with respect to (eta0, etaA, etaB, etaAB)
+  g <- c(2 * w[2] * w[3] - w[4], -w[2] * w[3], -w[2] * w[3], w[4])
+  expect_equal(int$se, sqrt(sum(g^2 / c(100, 50, 70, 25))), tolerance = 1e-4)
+  expect_true(all(is.na(est$estimates$rescaled[est$estimates$null_model == "MU"])))
+})
+
+test_that("simulated Bliss and multiplicative p-values coincide for the net interaction", {
+  d <- two_by_two_counts()
+  fit <- fit_2x2(d, "count", list(poisson = stats::poisson()))
+  est <- estimate_interactions(fit, null_models = c("MU", "BL"), n_sim = 4000, seed = 2)
+  e <- est$estimates
+  # w_K - prod(w_i) and log(w_K) - sum(log(w_i)) have the same sign in every
+  # draw
+  expect_equal(e$p_value[e$null_model == "BL"], e$p_value[e$null_model == "MU"])
+  expect_output(print(est), "BL = relative to the reference cell")
+  expect_output(print(est), "rescaled")
+})
+
+test_that("the emergent Bliss interaction of three stressors matches eq. 2.4", {
+  d <- three_way_gaussian()
+  des <- describe_design(d, c("n", "s", "f"), control = c(n = "0", s = "0", f = "0"),
+                         unit = "id")
+  fit <- fit_responses(d, "y", des, families = list(gaussian = stats::gaussian()),
+                       residual_checks = FALSE, quiet = TRUE)
+  est <- estimate_interactions(fit, null_models = "BL", inference = "delta")
+  rows <- est$estimates[est$estimates$component == "interaction" & est$estimates$order == 3L, ]
+  mu <- tapply(d$y, paste0(d$n, d$s, d$f), mean)
+  w <- mu / mu[["000"]]
+  e3 <- w[["111"]] - w[["100"]] * w[["011"]] - w[["010"]] * w[["101"]] -
+    w[["001"]] * w[["110"]] + 2 * w[["100"]] * w[["010"]] * w[["001"]]
+  expect_equal(rows$estimate[rows$estimand == "pure"], e3, tolerance = 1e-6)
+  expect_equal(rows$estimate[rows$estimand == "net"],
+               w[["111"]] - w[["100"]] * w[["010"]] * w[["001"]], tolerance = 1e-6)
+  expect_equal(rows$expected[rows$estimand == "pure"], mu[["111"]] - mu[["000"]] * e3,
+               tolerance = 1e-6)
+  expect_true(all(is.finite(rows$rescaled)))
+})
+
+test_that("the emergent Bliss interaction is not defined for four stressors", {
+  grid <- expand.grid(a = c("0", "1"), b = c("0", "1"), c = c("0", "1"), e = c("0", "1"),
+                      stringsAsFactors = FALSE)
+  d <- grid[rep(seq_len(16), each = 2), ]
+  d$y <- 10 + rep(c(-0.5, 0.5), 16) + rowSums(d[c("a", "b", "c", "e")] == "1")
+  d$id <- seq_len(nrow(d))
+  des <- describe_design(d, c("a", "b", "c", "e"),
+                         control = c(a = "0", b = "0", c = "0", e = "0"), unit = "id",
+                         max_order = 4)
+  fit <- fit_responses(d, "y", des, families = list(gaussian = stats::gaussian()),
+                       residual_checks = FALSE, quiet = TRUE)
+  est <- estimate_interactions(fit, null_models = c("MU", "BL"), inference = "delta")
+  four <- est$estimates[est$estimates$order == 4L & est$estimates$component == "interaction", ]
+  expect_equal(four$status[four$null_model == "BL" & four$estimand == "pure"], "not_defined")
+  expect_equal(four$status[four$null_model == "BL" & four$estimand == "net"], "ok")
+  expect_equal(four$status[four$null_model == "MU" & four$estimand == "pure"], "ok")
+})
+
+test_that("a combination with only zeros gives a rescaled Bliss interaction of -1", {
+  d <- two_by_two_counts()
+  d$count[d$a == "1" & d$b == "1"] <- 0
+  fit <- fit_2x2(d, "count", list(poisson = stats::poisson()))
+  est <- estimate_interactions(fit, null_models = c("MU", "BL"), n_sim = 2000, seed = 1)
+  int <- est$estimates[est$estimates$component == "interaction", ]
+  expect_equal(int$status, c("boundary", "boundary"))
+  expect_equal(int$p_value[2], int$p_value[1])
+  expect_equal(int$estimate[2], -0.5 * 0.7, tolerance = 1e-5)
+  expect_equal(int$rescaled[2], -1)
+  expect_equal(int$rescaled_class[2], "synergy")
+})
+
+test_that("Bliss independence is not applied to responses where higher means sensitivity", {
+  d <- two_by_two_counts()
+  fit <- fit_2x2(d, "count", list(poisson = stats::poisson()))
+  est <- estimate_interactions(fit, null_models = c("AD", "BL"), inference = "delta",
+                               sensitivity = "count")
+  expect_true(all(est$estimates$status[est$estimates$null_model == "BL"] == "not_applicable"))
+  expect_true(all(est$estimates$status[est$estimates$null_model == "AD"] == "ok"))
+})
+
+test_that("arguments that a must_fit does not use are refused", {
+  d <- two_by_two_counts()
+  fit <- fit_2x2(d, "count", list(poisson = stats::poisson()))
+  expect_error(estimate_interactions(fit, n_sims = 100), "'n_sims'",
+               class = "must_error_input")
+  err <- expect_error(estimate_interactions(fit, null_models = "XX"), class = "must_error_input")
+  expect_identical(conditionCall(err)[[1L]], as.name("estimate_interactions"))
+})
+
+test_that("stress addition estimates match the model of Liess et al. (2016)", {
+  d <- two_by_two_counts()
+  fit <- fit_2x2(d, "count", list(poisson = stats::poisson()))
+  est <- estimate_interactions(fit, null_models = c("BL", "SAM"), inference = "delta")
+  e <- est$estimates
+  sam <- e[e$null_model == "SAM", ]
+  expect_equal(sam$estimate[sam$component != "interaction"],
+               e$estimate[e$null_model == "BL" & e$component != "interaction"])
+  w_sam <- sam_expected(matrix(c(0.5, 0.7), nrow = 1), 3.2)
+  int <- sam[sam$component == "interaction", ]
+  expect_equal(int$estimate, 0.25 - w_sam, tolerance = 1e-5)
+  expect_equal(int$expected, 20 * w_sam, tolerance = 1e-4)
+  expect_equal(int$scale, "response / control")
+  expect_true(is.finite(int$se) && int$se > 0)
+  expect_true(is.na(int$rescaled))
+  # Another shape of the beta distribution
+  flatter <- estimate_interactions(fit, null_models = "SAM", inference = "delta", sam_shape = 1)
+  # With a uniform distribution (shape 1) the general stresses are the mortalities
+  expect_equal(flatter$estimates$estimate[flatter$estimates$component == "interaction"],
+               0.25 - (1 - 0.5 - 0.3), tolerance = 1e-4)
+  expect_equal(flatter$settings$sam_shape, 1)
+  expect_error(estimate_interactions(fit, null_models = "SAM", sam_shape = 0),
+               class = "must_error_input")
+  expect_output(print(est), "SAM = relative to the reference cell")
+})
+
+test_that("stress addition needs stressors that reduce the response", {
+  d <- two_by_two_counts()
+  d$count[d$a == "1" & d$b == "0"] <- d$count[d$a == "1" & d$b == "0"] * 3
+  fit <- fit_2x2(d, "count", list(poisson = stats::poisson()))
+  est <- estimate_interactions(fit, null_models = "SAM", inference = "delta")
+  int <- est$estimates[est$estimates$component == "interaction", ]
+  expect_equal(int$status, "not_applicable")
+  expect_match(int$reason, "'a=1' increases it")
+})
+
+test_that("concentration addition is not defined without dose-response curves", {
+  d <- two_by_two_counts()
+  d$a <- ifelse(d$a == "1", "5", "0")
+  d$b <- ifelse(d$b == "1", "2", "0")
+  des <- describe_design(d, c("a", "b"), control = c(a = "0", b = "0"), unit = "id")
+  fit <- fit_responses(d, "count", des, families = list(poisson = stats::poisson()),
+                       residual_checks = FALSE, quiet = TRUE)
+  est <- estimate_interactions(fit, null_models = "CA", inference = "delta")
+  e <- est$estimates
+  expect_equal(e$status[e$component == "interaction"], "not_defined")
+  expect_match(e$reason[e$component == "interaction"], "at least two doses of 'a' alone")
+  expect_true(all(e$status[e$component != "interaction"] == "ok"))
+  text <- two_by_two_counts()
+  text$a <- ifelse(text$a == "1", "high", "none")
+  des2 <- describe_design(text, c("a", "b"), control = c(a = "none", b = "0"), unit = "id")
+  fit2 <- fit_responses(text, "count", des2, families = list(poisson = stats::poisson()),
+                        residual_checks = FALSE, quiet = TRUE)
+  est2 <- estimate_interactions(fit2, null_models = "CA", inference = "delta")
+  expect_match(est2$estimates$reason[est2$estimates$component == "interaction"],
+               "levels of 'a' are not numbers")
+})
+
+test_that("concentration addition finds no interaction in data that follow it", {
+  d <- ca_factorial()
+  des <- describe_design(d, c("a", "b"), control = c(a = "0", b = "0"), unit = "id")
+  fit <- fit_responses(d, "y", des, families = list(gaussian = stats::gaussian()),
+                       residual_checks = FALSE, quiet = TRUE)
+  est <- estimate_interactions(fit, null_models = c("BL", "CA"), inference = "delta")
+  int <- est$estimates[est$estimates$component == "interaction", ]
+  ca <- int[int$null_model == "CA", ]
+  expect_equal(nrow(ca), 9L)
+  expect_true(all(ca$status == "ok"))
+  expect_true(all(abs(ca$estimate) < 1e-5))
+  expect_true(all(ca$se > 0))
+  # Bliss independence does detect departures from it
+  expect_gt(max(abs(int$estimate[int$null_model == "BL"])), 0.05)
+  # Expected = y0 * w_CA; the simulation agrees with the delta method
+  expect_equal(ca$expected, ca$observed, tolerance = 1e-4)
+  sim <- estimate_interactions(fit, null_models = "CA", n_sim = 4000, seed = 2)
+  sim_int <- sim$estimates[sim$estimates$component == "interaction", ]
+  expect_equal(sim_int$se, ca$se, tolerance = 0.1)
+})
+
+test_that("concentration addition uses every dose tested alone, as computed by hand", {
+  ray <- data.frame(f = c(0, 2, 20, 200, 0, 0, 0, 2, 20, 200),
+                    i = c(0, 0, 0, 0, 2, 20, 200, 2, 20, 200))
+  ray <- ray[rep(seq_len(nrow(ray)), each = 3), ]
+  ray$y <- round(60 / (1 + (ray$f / 30)^1.2) / (1 + ray$i / 60) * rep(c(0.9, 1, 1.1), 10))
+  ray$id <- seq_len(nrow(ray))
+  des <- describe_design(ray, c("f", "i"), control = c(f = "0", i = "0"), unit = "id")
+  fit <- fit_responses(ray, "y", des, families = list(poisson = stats::poisson()),
+                       residual_checks = FALSE, quiet = TRUE)
+  est <- estimate_interactions(fit, null_models = "CA", inference = "delta")
+  int <- est$estimates[est$estimates$component == "interaction", ]
+  expect_equal(int$levels, c("f=2 | i=2", "f=20 | i=20", "f=200 | i=200"))
+  mu <- tapply(ray$y, paste(ray$f, ray$i), mean)
+  w_f <- mu[c("2 0", "20 0", "200 0")] / mu[["0 0"]]
+  w_i <- mu[c("0 2", "0 20", "0 200")] / mu[["0 0"]]
+  curves <- list(fit_loglogistic(matrix(w_f, nrow = 1), log(c(2, 20, 200))),
+                 fit_loglogistic(matrix(w_i, nrow = 1), log(c(2, 20, 200))))
+  hand <- as.numeric(mu[c("2 2", "20 20", "200 200")]) / mu[["0 0"]] -
+    vapply(c(2, 20, 200), function(x) ca_expected(curves, c(x, x)), numeric(1))
+  expect_equal(int$estimate, hand, tolerance = 1e-4)
+})
+
+test_that("a combination with only zeros is tested against concentration addition", {
+  d <- ca_factorial(a = c(0, 1, 4), b = c(0, 2, 10))
+  d$y <- round(d$y / 4)
+  d$y[d$a == 4 & d$b == 10] <- 0
+  des <- describe_design(d, c("a", "b"), control = c(a = "0", b = "0"), unit = "id")
+  fit <- fit_responses(d, "y", des, families = list(poisson = stats::poisson()),
+                       residual_checks = FALSE, quiet = TRUE)
+  est <- estimate_interactions(fit, null_models = c("SAM", "CA"), n_sim = 2000, seed = 1)
+  int <- est$estimates[est$estimates$component == "interaction" &
+                         est$estimates$levels == "a=4 | b=10", ]
+  expect_equal(int$status, c("boundary", "boundary"))
+  expect_true(all(int$observed == 0))
+  expect_true(all(is.finite(int$p_value)))
+  expect_lt(int$expected[int$null_model == "CA"], 25 / 4)
+})
+
+test_that("stress addition and concentration addition give no pure interaction", {
+  d <- three_way_gaussian()
+  des <- describe_design(d, c("n", "s", "f"), control = c(n = "0", s = "0", f = "0"),
+                         unit = "id")
+  fit <- fit_responses(d, "y", des, families = list(gaussian = stats::gaussian()),
+                       residual_checks = FALSE, quiet = TRUE)
+  est <- estimate_interactions(fit, null_models = c("SAM", "CA"), inference = "delta")
+  three <- est$estimates[est$estimates$order == 3L & est$estimates$component == "interaction", ]
+  expect_equal(three$status[three$estimand == "pure"], c("not_defined", "not_defined"))
+  expect_equal(three$status[three$null_model == "SAM" & three$estimand == "net"], "ok")
+  mu <- tapply(d$y, paste0(d$n, d$s, d$f), mean)
+  w <- mu / mu[["000"]]
+  expect_equal(three$estimate[three$null_model == "SAM" & three$estimand == "net"],
+               w[["111"]] - sam_expected(matrix(w[c("100", "010", "001")], nrow = 1), 3.2),
+               tolerance = 1e-6)
+})
+
+test_that("a control shared by two `by` groups enters the sets of both", {
+  d <- shared_regimes()
+  des <- describe_design(d, c("a", "b"), control = c(a = "0", b = "0"), unit = "id",
+                         by = "regime", shared = c(regime = "both"))
+  fit <- fit_responses(d, "y", des, families = list(gaussian = stats::gaussian()),
+                       residual_checks = FALSE, quiet = TRUE)
+  est <- estimate_interactions(fit, null_models = "AD", inference = "delta")
+  ad <- est$estimates[est$estimates$component == "interaction", ]
+  expect_setequal(ad$regime, c("pulse", "press"))
+  mu <- tapply(d$y, paste(d$regime, d$a, d$b), mean)
+  for (r in c("pulse", "press")) {
+    expected <- mu[[paste(r, "1 1")]] - mu[[paste(r, "1 0")]] - mu[[paste(r, "0 1")]] +
+      mu[["both 0 0"]]
+    expect_equal(ad$estimate[ad$regime == r], expected, tolerance = 1e-6)
+  }
+  # One residual variance: 28 units in 7 cells
+  expect_equal(ad$df, c(21, 21))
+  # One variance per `by` group: each set uses its group and the shared rows
+  by_group <- fit_responses(d, "y", des, families = list(gaussian = stats::gaussian()),
+                            dispersion = "by", residual_checks = FALSE, quiet = TRUE)
+  ad_by <- interaction_rows(estimate_interactions(by_group, null_models = "AD",
+                                                  inference = "delta"), "AD")
+  expect_equal(ad_by$df, c(12, 12))
+  expect_equal(ad_by$estimate, ad$estimate, tolerance = 1e-6)
+})
+
+test_that("sets that involve a stressor are not estimated before it was applied", {
+  d <- three_way_repeated()
+  ctrl <- c(n = "0", s = "0", f = "0")
+  des <- describe_design(d, c("n", "s", "f"), control = ctrl, unit = "tank", time = "day",
+                         baseline = list(f = 0))
+  fit <- fit_responses(d, "y", des, families = list(gaussian = stats::gaussian()),
+                       residual_checks = FALSE, quiet = TRUE)
+  est <- estimate_interactions(fit, null_models = "AD", inference = "delta", overall = FALSE)
+  int <- est$estimates[est$estimates$component == "interaction", ]
+  expect_setequal(unique(int$stressors[int$time == "0"]), "n x s")
+  expect_setequal(unique(int$stressors[int$time == "10"]),
+                  c("n x s", "n x f", "s x f", "n x s x f"))
+  # With other stressors as background, a set with f away from control waits too
+  all_bg <- describe_design(d, c("n", "s", "f"), control = ctrl, unit = "tank", time = "day",
+                            baseline = list(f = 0), background = "all")
+  fit_bg <- fit_responses(d, "y", all_bg, families = list(gaussian = stats::gaussian()),
+                          residual_checks = FALSE, quiet = TRUE)
+  bg <- estimate_interactions(fit_bg, null_models = "AD", inference = "delta", overall = FALSE)
+  day0 <- bg$estimates[bg$estimates$component == "interaction" & bg$estimates$time == "0", ]
+  expect_true(all(day0$stressors == "n x s" & day0$background == ""))
+  # With additive time, f is coded at its control on day 0
+  frame <- design_model_frame(d, des)
+  frame <- baseline_as_control(frame, des)
+  expect_true(all(grepl("f=0", frame$.cell[frame$day == 0], fixed = TRUE)))
+  expect_identical(frame$.cell[frame$day == 10], design_model_frame(d, des)$.cell[d$day == 10])
+  additive <- fit_responses(d, "y", des, families = list(gaussian = stats::gaussian()),
+                            time_structure = "additive", residual_checks = FALSE, quiet = TRUE)
+  add_est <- estimate_interactions(additive, null_models = "AD", inference = "delta",
+                                   overall = FALSE)
+  expect_true(any(add_est$estimates$time == "0"))
 })

@@ -13,6 +13,7 @@ knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
 
 ```{r setup}
 library(must)
+has_emmeans <- requireNamespace("emmeans", quietly = TRUE)
 ```
 
 Calling a combined effect additive, synergistic or antagonistic is a
@@ -27,10 +28,23 @@ output:
 2. **Which model fits the data** (`fit_responses()`): a generalised linear
    mixed model per response, with its error distribution chosen for the
    data and not for the null model.
-3. **What "non-additive" means** (`estimate_interactions()`): simple
-   addition (AD), multiplication (MU) or dominance (DO), each on its own
-   scale, tested from the predictions of the same model (Madge Pimentel et
-   al. 2025), with a correction for experiments with few replicates.
+3. **What "non-additive" means** (`estimate_interactions()`): each
+   combination of stressors is tested against one or more null models, each
+   on its own scale, with the same criteria and from the predictions of the
+   same model (Madge Pimentel et al. 2025), with a correction for
+   experiments with few replicates. Simple addition (AD) is the default (see
+   "The default null model"); multiplication (MU) and dominance (DO), the
+   other null models of Madge Pimentel et al. (2025), Bliss independence
+   (BL), with the emergent three-way interaction of Beppler et al. (2016),
+   the stress addition model (SAM) of Liess et al. (2016) and concentration
+   addition (CA, Loewe additivity) are chosen in `null_models`, by name or
+   with `suggest_null_models()`, which applies the guidelines of Schäfer &
+   Piggott (2018) to what is known about the stressors. The same tests apply
+   to a model fitted with another package (see "Models fitted outside
+   must").
+
+`report_interactions()` then writes the methods of the analysis and the
+table of every decision behind it, from the settings of the objects.
 
 ## A worked example: insecticide, herbicide and nutrients
 
@@ -40,11 +54,13 @@ per combination (Polazzo & Rico 2021). Zooplankton were sampled five days
 before the pesticide application and on days 7, 14, 30 and 50 after it.
 Because nutrient additions started four weeks before the pesticides, day -5
 is not a pre-treatment baseline for all stressors; the example uses the four
-samplings after the application.
+samplings after the application. Besides the design, the table has the total
+density and one column per taxon; the first eight columns are the design and
+the three responses analysed below.
 
 ```{r data}
 zoo <- polazzo_zooplankton[polazzo_zooplankton$day > 0, ]
-head(zoo)
+head(zoo[, 1:8])
 ```
 
 ### 1. The design
@@ -90,10 +106,59 @@ the probability of observing only zeros if the null model held
 (`status = "boundary"`); when it is a cell the null model needs to compute
 its expectation, the contrast is `not_estimable`.
 
-### 3. Null models
+### 3. Which null models?
+
+`suggest_null_models()` applies the guidelines of Schäfer & Piggott (2018,
+Fig. 3) to what is known about the stressors. Chlorpyrifos inhibits an enzyme
+of the nervous system, diuron the photosynthesis of algae, and the nutrients
+add resources: the three stressors do not act similarly, and the insecticide
+acts specifically on physiology. The effect is a change in density, not
+mortality, and with one level of each stressor the experiment gives no
+stressor-effect relationship. How the sensitivities of the taxa to the
+stressors are correlated is not known, nor is the distribution of their
+sensitivities, so both are left unknown (`NA`, the default). The effects of
+each stressor alone, as shares of the effect limit (here the loss of the
+whole density), are estimated from the models in every contrast set and on
+every day, without using the combinations of stressors.
+
+```{r example-suggest}
+choice <- suggest_null_models(fits, similar_action = FALSE, specific_action = TRUE,
+                              mortality = FALSE, stressor_effect = FALSE)
+choice
+table(choice$sets$response, choice$sets$type, useNA = "ifany")
+```
+
+The unknown correlation of the sensitivities keeps dominance (if it were
+highly positive) besides simple addition and the multiplicative model, and in
+most sets and days the effects are too uncertain to tell whether their sum
+exceeds the effect limit, which would call for the multiplicative model.
+
+Stressors need not reduce a response. With three mesocosms per treatment most
+single effects cannot be told from zero (`"double neutral"`), but the
+insecticide increases the total density on day 7 and the cyclopoid copepods on
+day 50, and the nutrients increase *Daphnia* on days 14 and 30 (`"positive
+neutral"`, the types of Piggott et al. 2015); the cells of *Daphnia* with only
+zeros give no interval, so their direction is not known (`NA`). The guidelines
+take such effects with their sign: an increase offsets the decreases in the
+sum of the effects, which exceeds the effect limit when simple addition would
+predict a density below zero, and it rules out concentration addition and the
+stress addition model, which assume effects in one direction and stressors
+that reduce the response. For a proportion such as survival that the
+stressors alone increase, the guidelines are applied to its complement, and
+`estimate_interactions()` then needs the `sensitivity` that the suggestion
+gives. The guidelines were written for individuals and populations; for a
+community total, Schäfer & Piggott (2018) point to the compositional null
+model of Thompson et al. (2018), which predicts it from the null models of
+each taxon. `choice$sets` gives the null models reached in each set and day.
+
+### 4. Null models
+
+The guidelines leave the three null models of Madge Pimentel et al. (2025).
+`estimate_interactions()` takes them from `choice` and keeps its criteria and
+reasons in `settings$null_model_choice`:
 
 ```{r example-estimate}
-est <- estimate_interactions(fits, n_sim = 4000, seed = 2021)
+est <- estimate_interactions(fits, null_models = choice, n_sim = 4000, seed = 2021)
 e <- est$estimates
 triple <- e[e$response == "total_density" & e$order == 3L & e$component == "interaction" &
               e$null_model != "DO",
@@ -117,7 +182,7 @@ pairs7
 summary(est)
 ```
 
-### 4. Classes
+### 5. Classes
 
 ```{r example-classify}
 cls <- classify_interactions(est)
@@ -132,6 +197,103 @@ no interaction of this experiment deviates clearly from the null models.
 ```{r example-plot, fig.width = 7, fig.height = 4}
 plot(est, response = "total_density", null_model = "MU")
 ```
+
+### 6. Methods and decisions
+
+`report_interactions()` writes the statistical methods of this analysis from
+the settings of `est` and, if given, of the classes and of the comparison of
+null models: the design, the model selected for each response and how, the
+null models and the criteria behind them, and how the interactions were
+estimated and tested, with the works cited. Every value comes from the
+objects, so the text matches the analysis that was run; the description of
+the experiment itself (organisms, exposure, measurements) is left to the
+authors.
+
+```{r example-report}
+report <- report_interactions(est, classes = cls)
+cat(report$methods, sep = "\n\n")
+```
+
+The table of decisions gives, for every argument, the value used, its
+default and its source: the default, set by the user, chosen by must (the
+distribution selected, a seed drawn at random), estimated (criteria of the
+guidelines evaluated from the effects), taken from `suggest_null_models()` or
+recorded (versions). The decisions that differ from the defaults are those a
+reviewer will look for first:
+
+```{r example-decisions}
+changed <- !report$decisions$source %in% c("default", "recorded")
+report$decisions[changed, c("decision", "value", "source")]
+```
+
+`print(report)` shows the paragraphs, the table and the references as plain
+text. In an R Markdown or Quarto document, a chunk with `results = "asis"`
+and `cat(format(report, format = "markdown"), sep = "\n")` inserts them as
+paragraphs, a table and a list of references. A justification of the null
+models can be added with `justification`.
+
+## Additive, or only not detected?
+
+A non-significant interaction is a failure to detect a deviation: with few
+replicates most interactions are classed "AD" whatever their true size. To
+claim that a combination follows a null model, declare before the analysis
+the largest deviation that would be negligible, as a share of the response of
+the reference cell, in `margin`. Each interaction is then also tested for
+equivalence, with two one-sided tests (Schuirmann 1987; Lakens et al. 2018),
+on its relative deviation, (observed − expected) / reference, which is on the
+same scale for every null model. Each test measures how many standard errors
+separate the estimated means from the closest means at which the deviation
+equals the margin, on a scale on which the variance of a mean does not
+depend on the mean (the square root for counts, for example), so it does not
+depend on `inference`.
+
+In ten tanks per combination where copepods follow the multiplicative model
+exactly:
+
+```{r equivalence}
+tanks <- expand.grid(salinity = c("ambient", "high"), warming = c("no", "yes"),
+                     replicate = 1:10, stringsAsFactors = FALSE)
+tanks$tank <- seq_len(nrow(tanks))
+mu <- 100 * ifelse(tanks$salinity == "high", 0.7, 1) * ifelse(tanks$warming == "yes", 0.8, 1)
+tanks$copepods <- qpois((tanks$replicate - 0.5) / 10, mu)
+tank_design <- describe_design(tanks, c("salinity", "warming"),
+  control = c(salinity = "ambient", warming = "no"), unit = "tank")
+tank_fit <- fit_responses(tanks, "copepods", tank_design, residual_checks = FALSE,
+                          seed = 1, quiet = TRUE)
+eq <- estimate_interactions(tank_fit, null_models = c("AD", "MU"), n_sim = 4000, seed = 1,
+                            margin = 0.1)
+eq$estimates[eq$estimates$component == "interaction",
+             c("null_model", "relative", "relative_lower", "relative_upper", "p_adjusted",
+               "p_equivalence_adjusted")]
+classify_interactions(eq)[, c("null_model", "class", "verdict")]
+```
+
+Both null models give the class AD, but only the multiplicative one is
+equivalent within ±10% of the control. Under simple addition no deviation is
+detected, but it could be larger than the margin: the verdict is
+inconclusive. A deviation detected but within the margin would be
+`"negligible"`. With three mesocosms per combination, no interaction of the
+zooplankton experiment is equivalent even within ±25% of the control: they
+are inconclusive, not additive.
+
+```{r equivalence-zoo}
+eq_zoo <- estimate_interactions(fits, null_models = c("AD", "MU"), n_sim = 4000, seed = 2021,
+                                margin = 0.25)
+table(classify_interactions(eq_zoo)$verdict, useNA = "ifany")
+```
+
+The margin has no default: which deviation is negligible depends on the
+response and on the question, and has to be fixed before the results are
+seen. Equivalence also needs replication: in simulated 2 x 2 experiments
+with four units per combination, a margin of ±10% was never reached. The
+test kept its nominal error for Gaussian responses, survival and
+overdispersed counts analysed with a quasi-Poisson `glm()` or with the
+negative binomial of `fit_responses()`. It declared false equivalences too
+often when a Poisson model, which ignores the overdispersion, was fitted to
+the same counts (21% of the experiments, instead of 5%; that is why
+`fit_responses()` uses the Poisson only when the negative binomial does not
+converge), and with `MASS::glm.nb()` (10%; see "Equivalence" in
+`?estimate_interactions`).
 
 ## Few replicates: the small-sample correction
 
@@ -222,7 +384,8 @@ jar_design <- describe_design(jars, c("copper", "heat"),
   control = c(copper = "no", heat = "no"), unit = "jar")
 jar_fit <- fit_responses(jars, "dead", jar_design, trials = c(dead = "n"),
   residual_checks = FALSE, seed = 1, quiet = TRUE)
-mortality <- estimate_interactions(jar_fit, n_sim = 4000, seed = 1, sensitivity = "dead")
+mortality <- estimate_interactions(jar_fit, null_models = c("AD", "MU", "DO"), n_sim = 4000,
+                                   seed = 1, sensitivity = "dead")
 mortality$estimates[mortality$estimates$component == "interaction",
                     c("null_model", "estimate", "lower", "upper", "p_value", "note")]
 ```
@@ -254,6 +417,42 @@ ray_design$sets[, c("set_id", "levels", "net_identifiable", "shared")]
 Only the three diagonal combinations are identifiable, and all three share
 the same control: their interaction estimates are correlated, so finding the
 same class at the three doses is not three independent confirmations.
+
+### A control shared by several groups, and stressors that start later
+
+Sometimes one control serves several `by` groups: the same two stressors
+applied as pulses or as a press, in two orders, or to upstream and
+downstream ponds. Copying the control into each group would count its units
+twice. `shared` marks the rows that belong to every group of a `by` column;
+here the control tanks (`regime = "both"`) complete the sets of both
+regimes:
+
+```{r shared}
+regimes <- data.frame(
+  regime = rep(c("both", "pulse", "pulse", "pulse", "press", "press", "press"), each = 4),
+  heat = rep(c("no", "yes", "no", "yes", "yes", "no", "yes"), each = 4),
+  pesticide = rep(c("no", "no", "yes", "yes", "no", "yes", "yes"), each = 4)
+)
+regimes$tank <- seq_len(nrow(regimes))
+shared_design <- describe_design(
+  regimes,
+  stressors = c("heat", "pesticide"),
+  control = c(heat = "no", pesticide = "no"),
+  unit = "tank", by = "regime", shared = c(regime = "both")
+)
+shared_design$sets[, c("regime", "levels", "net_identifiable", "shared")]
+```
+
+The two sets use the same control, so their estimates are correlated, as in
+the ray design. Without `shared`, neither regime has a control and nothing is
+identifiable.
+
+When a stressor starts later than the others (drying from day 0, after
+weeks of warming), the samplings before it are pre-treatment for that
+stressor only. A named list in `baseline`, such as
+`baseline = list(drying = c(-36, -1))`, keeps the interactions that involve
+drying from being estimated before it was applied, while those among the
+other stressors are estimated at those times.
 
 ### Units inside groups: blocks, whole plots and confounding
 
@@ -340,13 +539,231 @@ pairwise interactions. If the design lacked the pairwise combinations, the
 pure interaction would be reported as `not_identifiable` and
 `describe_design()` would warn that the net deviation cannot be split.
 
+## Bliss independence and emergent interactions
+
+Under Bliss independence (`null_models = "BL"`; Bliss 1939) stressors act
+independently, so the responses relative to the reference cell,
+w = y / y0 (relative fitness or survival), multiply. The net interaction is
+wABC - wA wB wC, and the emergent interaction of Beppler et al.
+(2016, eq. 2.4), wABC - wA wBC - wB wAC - wC wAB + 2 wA wB wC, is the part
+of the three-way deviation that the pairwise interactions do not explain.
+For the stream channels:
+
+```{r bliss}
+bliss <- estimate_interactions(stream_fit, null_models = c("MU", "BL"), n_sim = 4000,
+                               seed = 1)
+b <- bliss$estimates
+b[b$component == "interaction" & b$order == 3L,
+  c("null_model", "estimand", "estimate", "lower", "upper", "p_value", "rescaled",
+    "rescaled_class")]
+```
+
+The net BL interaction tests the same hypothesis as the net MU interaction
+on another scale: both have the same sign in every simulation draw, so their
+simulated p-values coincide. The emergent interaction is a different
+hypothesis from the pure MU interaction, which removes the pairwise
+interactions on the log scale.
+
+`rescaled` divides each BL interaction by its value at an extreme (a
+combination with no response for negative interactions, one equal to the
+most affected single stressor for positive ones; Segrè et al. 2005, Beppler
+et al. 2016), and `rescaled_class` applies the cut-offs of Beppler et al.
+(2016) at -0.5 and 0.5. Here the emergent interaction is clearly below zero
+(its interval excludes zero) but small relative to lethal synergy, and the
+cut-offs would call it additive. must decides from the interval and the
+p-value, as for the other null models, and reports the rescaled value only
+as a description of size: fixed cut-offs ignore the uncertainty of the
+estimate (Madge Pimentel et al. 2025). The emergent interaction is defined
+here for three stressors; with four or more it is `not_defined`.
+
+## Stress addition and concentration addition
+
+Two more null models come from ecotoxicology. The stress addition model
+(`"SAM"`; Liess et al. 2016) assumes that each individual tolerates a
+general stress drawn from a beta distribution: the effect of each stressor
+alone becomes the general stress that causes it, the stresses add up, and
+the predicted survival of the combination is the share of individuals that
+tolerate their sum. Concentration addition (`"CA"`, Loewe additivity) treats
+each stressor as a dilution of the others: a combination is additive when
+the doses, each divided by the dose of that stressor alone with the same
+effect, add up to one (Loewe 1953; Tang et al. 2015). CA needs the
+dose-response curve of each stressor, so it needs at least two doses of each
+stressor tested alone, with numeric levels; in two-level factorials it is
+`not_defined`. must fits a two-parameter log-logistic curve to the responses
+at those doses, relative to the control, and refits it in each simulation
+draw.
+
+In this ray design, survivors out of 20 animals per jar were generated so
+that the two pesticides follow concentration addition exactly:
+
+```{r sam-ca}
+doses <- data.frame(fungicide = c(0, 5, 20, 80, 0, 0, 0, 5, 20, 80),
+                    insecticide = c(0, 0, 0, 0, 1, 4, 16, 1, 4, 16))
+mixtures <- doses[rep(seq_len(nrow(doses)), each = 4), ]
+mixtures$jar <- seq_len(nrow(mixtures))
+mixtures$n <- 20
+survival <- function(f, i) {
+  if (f == 0 && i == 0) return(0.95)
+  # Log-logistic curves with EC50 30 (slope 1.5) and 6 (slope 2)
+  eq <- function(w) f / (30 * ((1 - w) / w)^(1 / 1.5)) + i / (6 * ((1 - w) / w)^(1 / 2)) - 1
+  0.95 * uniroot(eq, c(1e-9, 1 - 1e-9))$root
+}
+p <- mapply(survival, mixtures$fungicide, mixtures$insecticide)
+mixtures$alive <- qbinom(c(0.2, 0.4, 0.6, 0.8)[(mixtures$jar - 1) %% 4 + 1], 20, p)
+mixture_design <- describe_design(mixtures, c("fungicide", "insecticide"),
+  control = c(fungicide = "0", insecticide = "0"), unit = "jar")
+mixture_fit <- fit_responses(mixtures, "alive", mixture_design, trials = c(alive = "n"),
+  residual_checks = FALSE, seed = 1, quiet = TRUE)
+mix <- estimate_interactions(mixture_fit, null_models = c("BL", "SAM", "CA"), n_sim = 4000,
+                             seed = 1)
+m <- mix$estimates
+m[m$component == "interaction",
+  c("levels", "null_model", "estimate", "lower", "upper", "p_adjusted")]
+```
+
+The same mixtures are additive under CA, show no clear deviation from Bliss
+independence, and are antagonistic under SAM, which predicts much larger
+combined effects than the other two. Which null model fits a pair of
+stressors is a mechanistic question that the data alone cannot settle (Tang
+et al. 2015; Madge Pimentel et al. 2025): name the model with each claim of
+synergy or antagonism.
+
+`compare_null_models()` sets the null models side by side:
+
+```{r sam-ca-compare}
+compare_null_models(mix)[, c("levels", "BL", "SAM", "CA", "agreement", "direction")]
+```
+
+The deviations at the two higher doses are model-dependent: only SAM flags
+them. An interaction that every plausible null model flags with the same
+sign (`"robust"`) does not depend on that choice; one that only some of them
+flag, or that they flag in opposite directions (`"conflicting"`), needs the
+mechanistic hypothesis to be interpreted. With two or more null models,
+`summary()` also counts these cases.
+
+## The default null model
+
+When there is a hypothesis about how the stressors act, the null model that
+represents it should be named in `null_models` (Madge Pimentel et al. 2025),
+and `suggest_null_models()` derives the null models that the guidelines of
+Schäfer & Piggott (2018) give for what is known. Without either, must uses
+simple addition. That default was chosen by
+simulation, with a rule fixed before the results were seen: among the null
+models defined in two-level factorials and with at least 80% of the highest
+average power against interactions that no mechanism explains, the one with
+the fewest false interactions on average over five mechanisms of no
+interaction, each with the same weight. The simulated experiments were 2 x 2
+factorials and 3 x 3 dose factorials with four units per combination, with
+survival out of 20 animals or overdispersed counts as the response, and
+moderate or weak single effects. The data of each experiment followed one of
+the five mechanisms without interaction, or a synergy (half the response
+that the most harmful mechanism predicts) or an antagonism (halfway between
+the most affected single stressor and the control) that none of them
+explains. Each experiment was analysed with a cell-means `glm()` and
+`estimate_interactions(model, design)`, and an interaction was flagged when
+p < 0.05 (100 experiments per scenario).
+
+Percentage of experiments with an interaction flagged, averaged over designs,
+responses and effect sizes (CA is tested in the dose design only; for two
+stressors MU and BL give the same test):
+
+| Data generated by | AD | MU, BL | DO | SAM | CA |
+|---|---|---|---|---|---|
+| AD, no interaction | 4.8 | 10.6 | 20.2 | 28.2 | 8.1 |
+| MU (BL), no interaction | 6.7 | 4.9 | 12.1 | 32.5 | 9.7 |
+| DO, no interaction | 19.7 | 14.8 | 3.2 | 44.5 | 25.0 |
+| SAM, no interaction | 60.2 | 76.4 | 85.8 | 4.0 | 34.7 |
+| CA, no interaction | 9.7 | 13.9 | 37.9 | 23.4 | 2.6 |
+| *False interactions, mean* | *20.2* | *24.1* | *31.9* | *26.5* | *16.0* |
+| Synergy | 79.0 | 97.4 | 99.4 | 10.8 | 51.2 |
+| Antagonism | 37.6 | 36.9 | 21.6 | 64.8 | 51.8 |
+| *Power, mean* | *58.3* | *67.1* | *60.5* | *37.8* | *51.5* |
+
+Each null model flags interactions at about the nominal rate when the data
+follow its own mechanism (the diagonal); elsewhere in the first five rows the
+tests are not wrong: the definitions of "no interaction" disagree. No null
+model was robust to every mechanism: data generated by stress addition
+looked synergistic to all the others, and data generated by the others
+looked antagonistic to stress addition. AD had the fewest false interactions
+among the null models that two-level factorials can test. CA had fewer in
+the dose design (16%, against 23% for AD there), with less power (51%
+against 63%), and needs at least two doses of each stressor tested alone.
+AD was also chosen within each design, each size of the single effects and
+with survival as the response. Without the stress addition mechanism, MU and
+BL came within one percentage point of AD and, being more powerful, would
+have been chosen; with counts only, the power of AD fell below 80% of theirs,
+and they would have been chosen too. Requiring every null model to agree
+(`agreement = "robust"` in `compare_null_models()`) flagged under 3% false
+interactions, but detected only 15% of the interactions that no mechanism
+explains: too strict to detect interactions, but a label for those that do
+not depend on the null model.
+
+The script, the rates of every scenario and the report of the simulation are
+installed with the package, so that the table can be checked and the
+simulation rerun or extended to other designs, effect sizes or numbers of
+units:
+
+```{r robustness-files}
+dir(system.file("simulations", package = "must"))
+```
+
+`source(system.file("simulations", "null_model_robustness.R", package = "must"))`
+repeats it with 100 experiments per scenario in about 45 minutes on two cores
+(`CORES <- 2` before sourcing it; parallel runs need a Unix-alike) and about
+1.5 hours on one.
+
+## Models fitted outside must
+
+`estimate_interactions()` also takes a model fitted with another package
+(`lm()`, `glm()`, `mgcv::gam()`, `lme4::glmer()`, `glmmTMB::glmmTMB()` and
+the other models supported by emmeans) together with the design of its
+data. The contrast sets, null models and tests are the same; the means of
+the treatment combinations are the estimated marginal means of emmeans
+(random effects at zero, other predictors averaged over), so the stressor,
+time and `by` columns of the design must be predictors of the model. For the
+small experiment above, the AD interaction of `lm()` is its interaction
+coefficient, with the same t interval:
+
+```{r external-lm, eval = has_emmeans}
+lm_est <- estimate_interactions(reference, small_design, null_models = c("AD", "MU", "BL"),
+                                inference = "delta")
+lm_est$estimates[lm_est$estimates$component == "interaction",
+                 c("null_model", "estimate", "lower", "upper", "df", "p_value")]
+```
+
+Three things are left to the model and to the user. The model is used as
+fitted, without the selection of `fit_responses()` or its REML refit; a
+combination with only zeros has no usable standard error in such models and
+its contrasts are `not_estimable`; and the degrees of freedom are those that
+emmeans gives, which are infinite for most generalized and mixed models. With
+few experimental units, give them in `df`: here 24 mesocosms in 8 treatment
+combinations leave 16.
+
+```{r external-glmmtmb, eval = has_emmeans}
+zoo_model <- glmmTMB::glmmTMB(
+  total_density ~ insecticide * herbicide * nutrients * factor(day) + (1 | mesocosm),
+  family = Gamma(link = "log"), data = zoo
+)
+zoo_est <- estimate_interactions(zoo_model, design, null_models = "MU", n_sim = 4000,
+                                 seed = 2021, df = 16)
+z <- zoo_est$estimates
+z[z$time == "7" & z$order == 3L & z$component == "interaction",
+  c("estimand", "estimate", "lower", "upper", "df", "p_adjusted")]
+```
+
+The estimates are close to those of the model selected by `fit_responses()`
+for this response (a Gamma model with a log link; `triple` above), and the
+intervals narrower, because the covariance comes from the maximum-likelihood
+fit rather than from the REML refit.
+
 ## Decisions and their arguments
 
 | Decision | Argument | Default |
 |---|---|---|
 | Level that means "no stressor" | `control` in `describe_design()` | none (required) |
 | Experimental unit | `unit` | each row |
-| Pre-treatment samplings | `baseline` | none |
+| Pre-treatment samplings, for all stressors or for each | `baseline` | none |
+| Rows shared by every group of a `by` column | `shared` | none |
 | Groups of units (blocks, whole plots, rooms) | `groups` | none |
 | Other stressors in each interaction | `background` | at control |
 | Candidate error distributions | `families`, `response_types` | chosen from the values of each response |
@@ -357,22 +774,30 @@ pure interaction would be reported as `not_identifiable` and
 | Random effects | `random` | intercept per estimable group and per unit when units repeat; removed if its variance is estimated at zero |
 | Optimiser limits | `control` | 20 iterations and 30 evaluations per fixed effect |
 | Residual checks in the selection | `residual_checks` | `TRUE` (needs DHARMa) |
-| Null models | `null_models` | AD, MU and DO |
+| Null models | `null_models` | AD (MU, DO, BL, SAM and CA on request, or from `suggest_null_models()`) |
+| What is known about the stressors | `similar_action`, `specific_action`, `mortality`, `stressor_effect`, `sensitivity_distribution`, `correlation` in `suggest_null_models()` | unknown: every value is tried |
+| Effects of the stressors alone | `effects` in `suggest_null_models()` | estimated from the fitted model |
+| Effect close to the effect limit | `near_limit` | 0.9 of the limit |
+| Intervals of those effects | `level` in `suggest_null_models()` | 95% |
+| Equivalence margin | `margin` | none (no test of equivalence) |
+| Shape of the stress capacity in SAM | `sam_shape` | 3.2 (Liess et al. 2016) |
 | Uncertainty | `inference`, `n_sim` | Krinsky–Robb simulation, 10000 draws |
 | Small-sample correction | `correction` | REML and t distribution |
+| Degrees of freedom of a model fitted outside must | `df` | those of emmeans |
 | Responses where more means worse | `sensitivity` | none |
 | Averages over times | `overall` | `TRUE` |
 | Multiple testing | `p_adjust` | Benjamini–Hochberg |
 | Random numbers | `seed` | drawn and stored in `settings$seed` |
+| Why these null models | `justification` in `report_interactions()` | the criteria of `suggest_null_models()`, or none |
 
 ## What a class means
 
-`classify_interactions()` follows Table 1 of Piggott et al. (2015) under AD
-and MU. For three or more stressors the same rules are applied to the net
-deviation and its k single effects, a generalization made by this package.
-"AD" means that no deviation was detected, not that additivity was shown;
-under MU, synergism and antagonism are relative to the multiplicative
-expectation. `borderline = TRUE` marks classes whose adjusted p-values are
+`classify_interactions()` follows Table 1 of Piggott et al. (2015) under AD,
+MU, BL, SAM and CA. For three or more stressors the same rules are applied
+to the net deviation and its k single effects, a generalization made by this
+package. "AD" means that no deviation was detected, not that additivity was
+shown; under the other null models, synergism and antagonism are relative to
+their own expectation. `borderline = TRUE` marks classes whose adjusted p-values are
 so close to `alpha` that another seed could change them. MU and DO only
 represent their mechanistic assumptions when an increase in the response
 means tolerance (survival, abundance), and AD can predict impossible
@@ -381,9 +806,29 @@ from it says little about the mechanism (Madge Pimentel et al. 2025).
 
 ## References
 
+Beppler, C., Tekin, E., Mao, Z., White, C., McDiarmid, C., Vargas, E.,
+Miller, J. H., Savage, V. M., & Yeh, P. J. (2016). Uncovering emergent
+interactions in three-way combinations of stressors. *Journal of the Royal
+Society Interface*, 13, 20160800. <https://doi.org/10.1098/rsif.2016.0800>
+
+Bliss, C. I. (1939). The toxicity of poisons applied jointly. *Annals of
+Applied Biology*, 26(3), 585–615.
+<https://doi.org/10.1111/j.1744-7348.1939.tb06990.x>
+
 Krinsky, I., & Robb, A. L. (1986). On approximating the statistical
 properties of elasticities. *The Review of Economics and Statistics*, 68(4),
 715–719. <https://doi.org/10.2307/1924536>
+
+Lakens, D., Scheel, A. M., & Isager, P. M. (2018). Equivalence testing for
+psychological research: A tutorial. *Advances in Methods and Practices in
+Psychological Science*, 1(2), 259–269. <https://doi.org/10.1177/2515245918770963>
+
+Liess, M., Foit, K., Knillmann, S., Schäfer, R. B., & Liess, H.-D. (2016).
+Predicting the synergy of multiple stress effects. *Scientific Reports*, 6,
+32965. <https://doi.org/10.1038/srep32965>
+
+Loewe, S. (1953). The problem of synergism and antagonism of combined drugs.
+*Arzneimittelforschung*, 3, 285–290.
 
 Madge Pimentel, I., Albini, D., Beermann, A. J., Leese, F., Macaulay, S. J.,
 Matthaei, C. D., Orr, J. A., Piggott, J. J., & Schäfer, R. B. (2025).
@@ -399,3 +844,25 @@ Polazzo, F., & Rico, A. (2021). Effects of multiple stressors on the
 dimensionality of ecological stability. *Ecology Letters*, 24(8), 1594–1606.
 <https://doi.org/10.1111/ele.13770>. Data: <https://doi.org/10.5061/dryad.qfttdz0gt>
 (CC0 1.0).
+
+Schäfer, R. B., & Piggott, J. J. (2018). Advancing understanding and
+prediction in multiple stressor research through a mechanistic basis for null
+models. *Global Change Biology*, 24(5), 1817–1826.
+<https://doi.org/10.1111/gcb.14073>
+
+Schuirmann, D. J. (1987). A comparison of the two one-sided tests procedure
+and the power approach for assessing the equivalence of average
+bioavailability. *Journal of Pharmacokinetics and Biopharmaceutics*, 15(6),
+657–680. <https://doi.org/10.1007/BF01068419>
+
+Segrè, D., DeLuna, A., Church, G. M., & Kishony, R. (2005). Modular epistasis
+in yeast metabolism. *Nature Genetics*, 37, 77–83.
+<https://doi.org/10.1038/ng1489>
+
+Tang, J., Wennerberg, K., & Aittokallio, T. (2015). What is synergy? The
+Saariselkä agreement revisited. *Frontiers in Pharmacology*, 6, 181.
+<https://doi.org/10.3389/fphar.2015.00181>
+
+Thompson, P. L., MacLennan, M. M., & Vinebrooke, R. D. (2018). An improved
+null model for assessing the net effects of multiple stressors on communities.
+*Global Change Biology*, 24(1), 517–525. <https://doi.org/10.1111/gcb.13852>

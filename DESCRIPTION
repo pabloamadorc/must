@@ -1,26 +1,36 @@
 Package: must
 Title: Multiple-Stressor Interactions Under Alternative Null Models
-Version: 0.1.0
+Version: 0.2.0
 Authors@R:
-    person("Pablo", "Amador Crespo", email = "pamadorc@gmail.com", role = c("aut", "cre"))
+    person("Pablo", "Amador Crespo", email = "pamadorc@gmail.com", role = c("aut", "cre"),
+           comment = c(ORCID = "0000-0002-3793-8794"))
 Description: Detects and classifies non-additive effects of multiple stressors in
-    experiments. Before any model is fitted, the design is described: missing
-    treatment combinations, cells shared by several contrasts, replication
-    units and repeated measures, and which interactions it identifies. A
-    generalised linear mixed model is then fitted to each response, choosing
-    its error distribution by convergence, simulation-based residual checks
-    and AIC, and interactions are tested from its adjusted predictions
-    against the simple addition, multiplicative and dominance null models,
-    following the post-estimation inference framework of Madge Pimentel et al.
-    (2025) <doi:10.1002/ece3.71959>, by default with a small-sample correction
+    experiments, testing each combination of stressors against alternative
+    null models with the same criteria. Before any model is fitted, the design
+    is described: missing treatment combinations, cells shared by several
+    contrasts, replication units and repeated measures, and which
+    interactions it identifies. Interactions are tested from the adjusted
+    predictions of one model per response, following the post-estimation
+    inference framework of Madge Pimentel et al. (2025)
+    <doi:10.1002/ece3.71959>, by default with a small-sample correction
     (restricted maximum likelihood and t distributions with the degrees of
-    freedom of the experimental units). Combinations with only zeros are
-    tested from the probability of that outcome. For three or more stressors
-    the net deviation from the single-stressor effects is distinguished from
-    the pure highest-order interaction. Interactions can be classified with
-    the directional scheme of Piggott et al. (2015) <doi:10.1002/ece3.1465>.
+    freedom of the experimental units). The model is either a generalised
+    linear mixed model fitted to each response, with its error distribution
+    chosen by convergence, simulation-based residual checks and AIC, or one
+    fitted with another package and supported by 'emmeans'. The null models
+    are simple addition (the default, which flagged the fewest false
+    interactions across mechanisms of no interaction in simulations), the
+    multiplicative and dominance models, Bliss independence, with the
+    emergent three-way interaction of Beppler et al. (2016)
+    <doi:10.1098/rsif.2016.0800>, the stress addition model of Liess et al.
+    (2016) <doi:10.1038/srep32965> and concentration addition. Combinations
+    with only zeros are tested from the probability of that outcome. For
+    three or more stressors the net deviation from the single-stressor
+    effects is distinguished from the pure highest-order interaction.
+    Interactions can be classified with the directional scheme of Piggott et
+    al. (2015) <doi:10.1002/ece3.1465>.
 License: MIT + file LICENSE
-URL: https://github.com/pabloamadorc/must
+URL: https://pabloamadorc.github.io/must/, https://github.com/pabloamadorc/must
 BugReports: https://github.com/pabloamadorc/must/issues
 Encoding: UTF-8
 Language: en-US
@@ -35,7 +45,10 @@ Imports:
     withr
 Suggests:
     DHARMa,
+    emmeans (>= 1.4.2),
     knitr,
+    lme4,
+    mgcv,
     rmarkdown,
     testthat (>= 3.0.0)
 VignetteBuilder: knitr

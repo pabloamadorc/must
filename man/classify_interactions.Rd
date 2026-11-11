@@ -22,18 +22,22 @@ code of every single effect, \code{"salinity +; warming 0"}),
 \code{code_combined}, \code{code_interaction} (\code{"+"}, \code{"-"}, \code{"0"}, or \code{"++"} /
 \code{"--"} for the strong cases defined by Piggott et al.), \code{pattern},
 \code{class} (\code{"AD"}, \code{"+S"}, \code{"-S"}, \code{"+A"}, \code{"-A"}), \code{meaning},
-\code{borderline} (some adjusted p-value used is within two Monte Carlo
-standard errors of \code{alpha}, so that another seed could change the
+\code{verdict} (with an equivalence \code{margin} in \code{\link[=estimate_interactions]{estimate_interactions()}}:
+\code{"deviation"}, \code{"negligible"}, \code{"equivalent"} or \code{"inconclusive"}; \code{NA}
+otherwise), \code{borderline} (some adjusted p-value used is within two Monte
+Carlo standard errors of \code{alpha}, so that another seed could change the
 class), \code{shared} (the set shares cells with other sets), \code{confounded}
 (the set is confounded with differences among groups of units, see
 \code{\link[=describe_design]{describe_design()}}), \code{min_units}, \code{status} (\code{"ok"},
-\code{"not_applicable"} or \code{"not_estimable"}) and \code{reason}.
+\code{"not_applicable"} or \code{"not_estimable"}) and \code{reason}. The attribute
+\code{alpha} keeps the significance level, for \code{\link[=report_interactions]{report_interactions()}}.
 }
 \description{
 Codes the single, combined and interaction effects of each identifiable
 contrast set as positive, negative or not significant, and assigns the
 directional class of Piggott et al. (2015, Table 1) under the
-simple-addition (AD) and multiplicative (MU) null models.
+simple-addition (AD), multiplicative (MU), Bliss independence (BL), stress
+addition (SAM) and concentration addition (CA) null models.
 }
 \details{
 Each effect is coded \code{"0"} if its adjusted p-value is at least \code{alpha},
@@ -54,8 +58,11 @@ null model. Table 1 then reduces to:\tabular{lll}{
 }
 
 
-Under MU, +S and -S mean "more positive" or "more negative" than the
-multiplicative expectation, not than the sum of the single effects.
+Under MU, BL, SAM and CA, +S and -S mean "more positive" or "more
+negative" than the expectation of that null model, not than the sum of
+the single effects. The BL, SAM and CA classes are computed from the
+relative effects (\code{w - 1}) and the interaction of each model; the
+descriptive \code{rescaled_class} of \code{\link[=estimate_interactions]{estimate_interactions()}} is not used.
 
 \strong{Three or more stressors.} The net deviation of a set of k stressors is
 the combined effect minus the sum of the k single effects (AD, or the
@@ -63,6 +70,17 @@ same on the log scale for MU), the comparison that Table 1 classifies; the
 same rules are applied with k single effects. This generalization is a
 design decision of this package: Piggott et al. (2015) define the classes
 for two stressors. The pure k-way interaction is not classified.
+
+\strong{Verdicts.} With an equivalence margin, the net interaction gets a
+verdict from its two adjusted p-values, both compared with \code{alpha}:
+\code{"deviation"} (deviation detected, not equivalent), \code{"negligible"} (a
+deviation detected but within the margin), \code{"equivalent"} (no deviation
+detected and within the margin) or \code{"inconclusive"} (neither). The class
+\code{"AD"} covers both \code{"equivalent"} and \code{"inconclusive"}: only the first
+supports additivity (see "Equivalence" in \code{\link[=estimate_interactions]{estimate_interactions()}}).
+Combinations with only zeros have no test of equivalence, so their
+verdict is \code{"deviation"} or \code{"inconclusive"}. DO interactions get a verdict
+too, although they have no class.
 
 \strong{Combinations with only zeros} (\code{status = "boundary"} in
 \code{\link[=estimate_interactions]{estimate_interactions()}}) are classified from the sign of their
@@ -73,13 +91,15 @@ estimate (which may be infinite under MU) and their p-value.
 \itemize{
 \item AD means that no deviation from the null model was detected. It is not
 evidence of additivity: with few replicates most interactions will be
-classed AD.
+classed AD. With a \code{margin}, \code{verdict} tells equivalent from
+inconclusive.
 \item The class of a set with \code{confounded = TRUE} may reflect differences
 among groups of units (rooms, blocks) as much as the stressors.
-\item The classification is defined for null models that combine effects by a
-sum (AD on the response scale, MU on the log scale). The dominance model
-gets \code{status = "not_applicable"}, as do rows of \code{"not_applicable"}
-estimates (see \code{sensitivity} in \code{\link[=estimate_interactions]{estimate_interactions()}}).
+\item The classification is defined for null models that predict the
+combination from the single effects (AD, MU, BL, SAM and CA). The
+dominance model gets \code{status = "not_applicable"}, as do rows of
+\code{"not_applicable"} estimates (see \code{sensitivity} in
+\code{\link[=estimate_interactions]{estimate_interactions()}}).
 }
 }
 

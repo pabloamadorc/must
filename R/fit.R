@@ -87,7 +87,9 @@
 #'     `n_missing` (rows without a response value) and `grid` (treatment
 #'     combinations and times predicted later).
 #'   * `design`: the design.
-#'   * `settings`: the arguments used, with the seed.
+#'   * `settings`: the arguments used, with the seed (and whether it was
+#'     given), the families of the candidates given in `families` and the
+#'     versions of must, R, glmmTMB and, with the residual checks, DHARMa.
 #'
 #' @details
 #' **Model.** Treatment combinations are coded as one factor (a cell-means
@@ -100,8 +102,15 @@
 #' **Default candidates.** Responses with `trials` are binomial: binomial and
 #' beta-binomial, both with a logit link. Otherwise whole non-negative
 #' numbers are treated as counts (the `type_source` says the type was
-#' detected): Poisson and negative binomial (NB2), both with a log link.
-#' Continuous values: Gaussian, Gaussian with log link, Gamma with log link
+#' detected): Poisson and negative binomial (NB2), both with a log link,
+#' but the Poisson is selected only if the negative binomial does not
+#' converge, as happens when the counts show no overdispersion to estimate.
+#' With overdispersed counts and four units per combination, the AIC chose
+#' the Poisson in a fifth of simulated experiments (the residual checks
+#' passed it too), and then the tests of [estimate_interactions()] rejected
+#' true null models too often; fitting the negative binomial kept them close
+#' to their nominal error, at a small cost in power when the counts are
+#' truly Poisson. Continuous values: Gaussian, Gaussian with log link, Gamma with log link
 #' and lognormal if all values are positive; Gaussian, Gaussian with log
 #' link and Tweedie if there are zeros; Gaussian only if there are negative
 #' values. With an `offset` only the log-link candidates are kept. Use
@@ -139,7 +148,8 @@
 #' Terms given in `random` are never removed.
 #'
 #' **Selection.** Candidates that fail to converge or have a non-positive
-#' definite Hessian are discarded. With `residual_checks = TRUE`, a candidate
+#' definite Hessian are discarded, and so is the default Poisson for counts
+#' when the negative binomial is left. With `residual_checks = TRUE`, a candidate
 #' passes when the three DHARMa tests give p >= 0.05; if at least one
 #' candidate passes, only those compete, and otherwise those passing the
 #' most tests (`checks_passed = FALSE`: inspect that model before using
@@ -266,6 +276,7 @@ fit_responses <- function(data, responses, design, families = NULL,
     )
   }
   random_terms <- resolve_random(random, design, frame)
+  seed_given <- !is.null(seed)
   seed <- resolve_seed(seed)
   run <- function() {
     lapply(responses, function(r) {
@@ -303,7 +314,12 @@ fit_responses <- function(data, responses, design, families = NULL,
         control = if (is.null(control)) "scaled iteration limits" else "user",
         residual_checks = residual_checks,
         n_sim_residuals = as.integer(n_sim_residuals),
-        seed = seed
+        seed = seed,
+        seed_given = seed_given,
+        candidate_families = lapply(families, function(fams) {
+          if (is.null(fams)) NULL else vapply(fams, `[[`, character(1), "family")
+        }),
+        versions = analysis_versions(c("glmmTMB", if (residual_checks) "DHARMa"))
       )
     ),
     class = "must_fit"
@@ -860,7 +876,8 @@ fit_one_response <- function(frame, response, families, response_type, trials_co
   if (has_time) {
     d$.time <- droplevels(d$.time)
   }
-  if (identical(time_structure, "additive") && has_time && length(design$spec$baseline) > 0L) {
+  if (identical(time_structure, "additive") && has_time &&
+      any(lengths(baseline_times(design$spec)) > 0L)) {
     d <- baseline_as_control(d, design)
   }
   kind <- if (!is.null(trials_col)) "binomial" else if (!is.null(offset_col)) "offset" else "plain"
@@ -882,11 +899,17 @@ fit_one_response <- function(frame, response, families, response_type, trials_co
     base$reason <- "The response has no non-missing values."
     return(base)
   }
+  # Candidates that compete only if no other converges: the default Poisson
+  # for counts.
+  fallback <- character()
   if (is.null(families)) {
     defaults <- default_families(d[[response]], response_type, kind)
     families <- defaults$families
     base$response_type <- defaults$type
     base$type_source <- defaults$source
+    if (identical(defaults$type, "count")) {
+      fallback <- "poisson"
+    }
     if (length(families) == 0L) {
       base$reason <- "No log-link candidate suits a response with negative values and an offset."
       return(base)
@@ -920,7 +943,7 @@ fit_one_response <- function(frame, response, families, response_type, trials_co
   })
   selection <- do.call(rbind, lapply(candidates, `[[`, "row"))
   rownames(selection) <- NULL
-  chosen <- select_candidate(selection, residual_checks, length(boundary) > 0L)
+  chosen <- select_candidate(selection, residual_checks, length(boundary) > 0L, fallback)
   if (is.na(chosen$best)) {
     base$selection <- selection
     base$reason <- paste0(
@@ -993,32 +1016,58 @@ fit_one_response <- function(frame, response, families, response_type, trials_co
 }
 
 # With additive time the treatment means are shared by every sampling time.
-# Before the treatments every unit is untreated, so the baseline rows are
-# coded as the control combination of their `by` group: they inform the time
-# effects and the differences among units, not the treatment means.
+# Before a stressor was applied the units had not received it, so at its
+# baseline times the rows are coded with that stressor at its control (all
+# of them at control before any was applied): they inform the time effects
+# and the differences among units, not the means of the treatments they had
+# not yet received. The recoded combination must be in the design, in the
+# same `by` group or among the rows shared with it.
 baseline_as_control <- function(d, design) {
-  pre <- as.character(d$.time) %in% design$spec$baseline
-  if (!any(pre)) {
+  spec <- design$spec
+  per <- baseline_times(spec)
+  time <- as.character(d$.time)
+  pre <- matrix(vapply(spec$stressors, function(s) time %in% per[[s]], logical(nrow(d))),
+                nrow = nrow(d))
+  rows <- which(rowSums(pre) > 0L)
+  if (length(rows) == 0L) {
     return(d)
   }
+  lev <- lapply(seq_along(spec$stressors), function(k) {
+    v <- as.character(d[[spec$stressors[[k]]]][rows])
+    v[pre[rows, k]] <- spec$control[[spec$stressors[[k]]]]
+    v
+  })
+  names(lev) <- spec$stressors
+  label <- make_cell_label(lev, spec$stressors)
   cells <- design$cells
-  ctrl <- cells[cells$n_stressed == 0L, , drop = FALSE]
-  ctrl_group <- if (length(design$spec$by) == 0L) {
-    ctrl$cell
-  } else {
-    paste(ctrl$context, ctrl$cell, sep = " || ")
+  pools <- context_pools(cells, spec)
+  pos <- rep(NA_integer_, length(rows))
+  ctx <- d$.context[rows]
+  for (cx in unique(ctx)) {
+    i <- which(ctx == cx)
+    pos[i] <- pool_match(label[i], cx, cells, pools)
   }
-  hit <- match(d$.context[pre], ctrl$context)
-  if (anyNA(hit)) {
-    abort_input(paste(
-      "With `baseline` and time_structure = \"additive\", every `by` group needs",
-      "a control combination, to which the baseline samplings are assigned."
+  if (anyNA(pos)) {
+    lacking <- unique(short_cells(label[is.na(pos)], spec$control, ctx[is.na(pos)]))
+    abort_input(sprintf(
+      paste(
+        "With `baseline` and time_structure = \"additive\", the samplings before a",
+        "stressor was applied are coded with that stressor at its control, and that",
+        "combination must be in the design (in the same `by` group or shared with",
+        "it): %s %s not."
+      ),
+      format_items(quote_items(lacking), max = 3L), if (length(lacking) == 1L) "is" else "are"
     ))
   }
+  new_group <- if (length(spec$by) == 0L) {
+    cells$cell[pos]
+  } else {
+    paste(cells$context[pos], cells$cell[pos], sep = " || ")
+  }
   group <- as.character(d$.group)
-  group[pre] <- ctrl_group[hit]
-  d$.cell[pre] <- ctrl$cell[hit]
-  d$.group <- droplevels(factor(group, levels = union(levels(d$.group), ctrl_group)))
+  group[rows] <- new_group
+  d$.cell[rows] <- cells$cell[pos]
+  d$.group <- droplevels(factor(group, levels = union(levels(d$.group), unique(new_group))))
   cell_time <- paste(as.character(d$.group), as.character(d$.time), sep = " @ ")
   ct_levels <- unique(cell_time[order(as.integer(d$.group), as.integer(d$.time))])
   d$.cell_time <- factor(cell_time, levels = ct_levels)
@@ -1170,14 +1219,30 @@ start_values <- function(d, spec, family, X) {
 
 # Choose among the candidates: converged ones, those that pass the residual
 # checks (or pass the most), lowest AIC; ties between links broken on purpose.
-select_candidate <- function(selection, residual_checks, has_boundary) {
+select_candidate <- function(selection, residual_checks, has_boundary, fallback = character()) {
   usable <- selection$converged & is.finite(selection$aic)
   if (!any(usable)) {
     return(list(best = NA_integer_, checks_passed = NA, notes = character()))
   }
+  notes <- character()
+  # `fallback` candidates compete only if no other candidate is usable.
+  spare <- selection$family %in% fallback
+  if (any(spare)) {
+    if (any(usable & !spare)) {
+      usable <- usable & !spare
+    } else {
+      notes <- sprintf(
+        paste(
+          "%s did not converge, as happens when the counts show no overdispersion",
+          "to estimate; %s was selected instead."
+        ),
+        format_items(quote_items(selection$family[!spare]), max = Inf),
+        format_items(quote_items(selection$family[spare & usable]), max = Inf)
+      )
+    }
+  }
   pool <- usable
   checks_passed <- NA
-  notes <- character()
   if (residual_checks) {
     passed <- usable & selection$residuals_ok %in% TRUE
     if (any(passed)) {
@@ -1192,13 +1257,13 @@ select_candidate <- function(selection, residual_checks, has_boundary) {
         pool <- usable
       }
       checks_passed <- FALSE
-      notes <- sprintf(
+      notes <- c(notes, sprintf(
         paste(
           "No candidate passed all the residual checks; the lowest AIC among those",
           "passing the most (%d of 3) was selected."
         ),
         most
-      )
+      ))
     }
   }
   aic <- ifelse(pool, selection$aic, Inf)

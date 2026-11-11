@@ -1,0 +1,460 @@
+---
+title: "Two mesocosm experiments"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Two mesocosm experiments}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+This article applies the whole workflow of must, from the design to the
+methods paragraph, to two outdoor mesocosm experiments whose data come with
+the package: Polazzo & Rico (2021), with an insecticide, a herbicide and
+nutrient enrichment, and Hermann et al. (2024), with an insecticide and
+three temperature regimes. `vignette("must")` explains each step; here the
+emphasis is on the choices that each data set asks for and on how to read
+the results. The analyses illustrate the package and do not replace those of
+the original articles.
+
+Each analysis follows the same steps:
+
+1. `describe_design()`: what the design identifies, with the samplings taken
+   before the stressors were applied declared in `baseline`.
+2. `fit_responses()`: one model per response, with its error distribution
+   chosen for the data.
+3. `suggest_null_models()`: the null models that the guidelines of Schäfer &
+   Piggott (2018) give for what is known about the stressors and for the
+   effects of each stressor alone, estimated from the model.
+4. `estimate_interactions()`, `classify_interactions()` and
+   `compare_null_models()`: the interactions, their classes and whether the
+   null models agree on them.
+5. `report_interactions()`: the methods and the table of decisions.
+
+What `suggest_null_models()` needs to know about the stressors is the same
+in both experiments. The stressors do not act similarly, and one of them
+acts specifically on physiology: chlorpyrifos (an inhibitor of
+acetylcholinesterase) and diuron (an inhibitor of photosystem II) in the
+first experiment, imidacloprid (which binds to the nicotinic acetylcholine
+receptors of insects) in the second. The responses are densities, counts and
+a loss of mass, not mortality, and with a single concentration of each
+pesticide the stressor-effect relationships are not known. How the
+sensitivities to the stressors are distributed and correlated is not known
+either: those criteria are left unknown, so that every value is tried.
+
+```{r setup}
+library(must)
+suggest <- function(fit) {
+  suggest_null_models(fit, similar_action = FALSE, specific_action = TRUE,
+                      mortality = FALSE, stressor_effect = FALSE)
+}
+```
+
+The residual checks of `fit_responses()` are switched off
+(`residual_checks = FALSE`) only so that this article runs without the
+DHARMa package; in an analysis, keep the default.
+
+## Insecticide, herbicide and nutrients
+
+Polazzo & Rico (2021) used 24 outdoor mesocosms, three per combination of a
+full factorial of chlorpyrifos (1 µg/L, or absent), diuron (18 µg/L, or
+absent) and nutrients (nitrogen and phosphorus added twice a week, or
+ambient). The nutrient additions started four weeks before the pesticides
+were applied, on day 0.
+
+```{r polazzo-stressors}
+stressors <- c("insecticide", "herbicide", "nutrients")
+control <- c(insecticide = "absent", herbicide = "absent", nutrients = "ambient")
+```
+
+### Phytoplankton
+
+`polazzo_phytoplankton` has the density of each taxon and their total on
+days -5, 7, 15 and 50. Day -5 precedes the pesticides but not the nutrients,
+so it is a baseline for the pesticides only. Declared per stressor in
+`baseline`, it stays in the model, and no interaction that involves a
+pesticide is tested on it.
+
+```{r phyto-design}
+phyto_design <- describe_design(polazzo_phytoplankton, stressors, control,
+                                unit = "mesocosm", time = "day",
+                                baseline = list(insecticide = -5, herbicide = -5))
+phyto_design$sets[, c("set_id", "stressors", "net_identifiable", "pure_identifiable")]
+```
+
+The full factorial identifies the three pairwise interactions and the
+three-way one, whose pure interaction can be separated from the pairwise
+ones. The densities are whole numbers, which `fit_responses()` would take
+for counts; as densities, counts scaled to a volume (the source does not
+give the unit), they are declared continuous in `response_types`.
+
+```{r phyto-fit}
+phyto_fit <- fit_responses(polazzo_phytoplankton, "total_density", phyto_design,
+                           response_types = c(total_density = "continuous"),
+                           residual_checks = FALSE, seed = 1, quiet = TRUE)
+phyto_fit
+phyto_fit$fits$total_density$reason
+```
+
+A Gamma model with a log link fits best. The variance of its random
+intercept per mesocosm was estimated at zero, and the intercept was removed.
+
+```{r phyto-suggest}
+phyto_choice <- suggest(phyto_fit)
+phyto_choice$null_models
+table(phyto_choice$sets$type, phyto_choice$sets$time)
+```
+
+The guidelines leave the three null models of Madge Pimentel et al. (2025):
+simple addition (AD), the multiplicative model (MU) and dominance (DO). The
+stress addition model needs mortality as the effect, concentration addition
+stressors that act similarly, and dominance stays because the correlation of
+the sensitivities is unknown. In most sets and days the single effects are
+too uncertain to have a direction (types of Piggott et al. 2015); on day 15
+the insecticide alone increased the phytoplankton.
+
+```{r phyto-estimate}
+phyto_est <- estimate_interactions(phyto_fit, null_models = phyto_choice, n_sim = 4000,
+                                   seed = 2021)
+e <- phyto_est$estimates
+# Effects of each stressor alone, as multiples of the control density
+single <- e[e$order == 3L & e$component == "single" & e$null_model == "MU",
+            c("time", "stressor", "estimate", "lower", "upper", "p_adjusted")]
+single[c("estimate", "lower", "upper")] <- round(exp(single[c("estimate", "lower", "upper")]), 1)
+single$p_adjusted <- signif(single$p_adjusted, 2)
+single
+summary(phyto_est)
+```
+
+```{r phyto-numbers, include = FALSE}
+fold <- function(s) single$estimate[single$time == "overall" & single$stressor == s]
+```
+
+On single days none of these effects is significant once the p-values are
+adjusted across sets and days, but averaged over the samplings the
+insecticide alone multiplied the phytoplankton by `r fold("insecticide")` and
+the herbicide alone by `r fold("herbicide")`. Few interactions deviate
+from the null models, mostly in the averages over time:
+
+```{r phyto-agreement}
+phyto_agreement <- compare_null_models(phyto_est)
+phyto_agreement[phyto_agreement$agreement %in% c("robust", "model_dependent", "conflicting"),
+                c("time", "stressors", "estimand", "AD", "MU", "DO", "agreement")]
+phyto_classes <- classify_interactions(phyto_est)
+phyto_classes[phyto_classes$time == "overall" & phyto_classes$null_model != "DO",
+              c("stressors", "null_model", "single_codes", "code_interaction", "class")]
+```
+
+The mean densities explain them:
+
+```{r phyto-means}
+after <- polazzo_phytoplankton[polazzo_phytoplankton$day > 0, ]
+treatment <- paste(after$insecticide, after$herbicide, after$nutrients, sep = " / ")
+phyto_means <- round(tapply(after$total_density, list(treatment, after$day), mean))
+phyto_means
+```
+
+```{r phyto-bloom, include = FALSE}
+bloom <- round(phyto_means["chlorpyrifos / diuron / added", "7"] /
+                 phyto_means["absent / absent / added", "7"])
+```
+
+* **Herbicide and nutrients.** Diuron alone increased the phytoplankton,
+  nutrients alone did not change it on average, and together they kept it at
+  or below the density of the controls. Averaged over the samplings, every
+  null model flags this deviation (`robust`), and the classes call it a
+  negative synergism (−S) under AD and MU.
+* **The two pesticides.** Only dominance flags their interaction
+  (`model_dependent`): whether it deviates depends on the mechanism assumed,
+  and the guidelines leave that open because the correlation of the
+  sensitivities is unknown.
+* **The three stressors.** Their net deviation is not significant, but the
+  pure three-way interaction is positive under AD and MU: with the three
+  stressors together the phytoplankton bloomed (on day 7, `r bloom` times
+  the density with nutrients alone) beyond what the pairwise interactions
+  explain.
+
+### Macroinvertebrates
+
+`polazzo_macroinvertebrates` counts the individuals of each taxon on days
+-32, 15, 30 and 50. Day -32 precedes every stressor, so it is a common
+baseline. Besides the total, the analysis follows *Cloeon*, a mayfly, an
+insect group sensitive to organophosphate insecticides such as chlorpyrifos.
+
+```{r macro-fit}
+macro_design <- describe_design(polazzo_macroinvertebrates, stressors, control,
+                                unit = "mesocosm", time = "day", baseline = -32)
+macro_fit <- fit_responses(polazzo_macroinvertebrates, c("total_abundance", "cloeon"),
+                           macro_design, residual_checks = FALSE, seed = 1, quiet = TRUE)
+macro_fit
+```
+
+Both are counts, and the negative binomial fits both; the total of one
+sample is missing in the source and that sample is left out. The guidelines
+leave the same three null models:
+
+```{r macro-estimate}
+macro_choice <- suggest(macro_fit)
+macro_choice$null_models
+macro_est <- estimate_interactions(macro_fit, null_models = macro_choice, n_sim = 4000,
+                                   seed = 2021)
+summary(macro_est)
+```
+
+```{r macro-numbers, include = FALSE}
+taxa <- names(attr(polazzo_macroinvertebrates, "taxa"))
+share <- round(100 * sum(polazzo_macroinvertebrates$physella_acuta, na.rm = TRUE) /
+                 sum(polazzo_macroinvertebrates$total_abundance, na.rm = TRUE))
+```
+
+The total, `r share`% of which are the snail *Physella acuta*, shows no
+effect and no interaction. *Cloeon* tells another story:
+
+```{r cloeon}
+day15 <- polazzo_macroinvertebrates[polazzo_macroinvertebrates$day == 15, ]
+with(day15, tapply(cloeon, list(insecticide, paste(herbicide, nutrients, sep = " / ")),
+                   paste, collapse = ", "))
+e <- macro_est$estimates
+e[e$response == "cloeon" & e$order == 3L & e$component == "single" & e$null_model == "AD",
+  c("time", "stressor", "estimate", "p_adjusted", "status")]
+with(e[e$response == "cloeon" & e$component == "interaction", ], table(status, time))
+```
+
+Two weeks after the application, chlorpyrifos had eliminated *Cloeon* from
+every mesocosm but one. The effect of the insecticide alone is then tested
+from the probability of observing only zeros if *Cloeon* had kept the
+density of the controls (`status = "boundary"`; adjusted p < 0.001). The
+interactions that need the mesocosms with the insecticide alone cannot be
+measured on that day (`not_estimable`): once a stressor alone has eliminated
+the response, nothing is left on which the other stressors could add or
+multiply. From day 30 the effect of the insecticide is no longer detected,
+and no interaction is detected either. A community total can hide the loss
+of its most sensitive taxa.
+
+## Insecticide and heat
+
+Hermann et al. (2024) used 24 outdoor mesocosms, four per combination of a
+2 x 3 factorial: imidacloprid (nominal 1 µg/L, applied on days 0, 14 and
+28, or absent) and temperature (ambient; elevated, 4 °C above ambient; or three
+heatwaves of 7 days, separated by 7 days at ambient temperature). The
+temperature treatments lasted until day 42, and the following six weeks
+were a recovery phase. The water temperature measured in the evening shows
+the heatwaves, on days 3, 17 and 31:
+
+```{r hermann-temperature}
+evening <- hermann_water_quality[hermann_water_quality$time_of_day == "evening", ]
+round(tapply(evening$water_temperature, list(evening$temperature, evening$day), mean), 1)
+```
+
+Temperature has three levels, so the design gives two contrast sets:
+imidacloprid with elevated temperature and imidacloprid with heatwaves, each
+against ambient temperature.
+
+```{r hermann-stressors}
+h_stressors <- c("imidacloprid", "temperature")
+h_control <- c(imidacloprid = "absent", temperature = "ambient")
+```
+
+### Zooplankton
+
+`hermann_zooplankton` has the density of each taxon and their total, sampled
+the day before the first application (day -1, a baseline for both
+stressors) and every two weeks after it, a few days after each heatwave
+during the heat phase.
+
+```{r zoo-design}
+zoo_design <- describe_design(hermann_zooplankton, h_stressors, h_control,
+                              unit = "mesocosm", time = "day", baseline = -1)
+zoo_design$sets[, c("set_id", "stressors", "levels")]
+zoo_fit <- fit_responses(hermann_zooplankton, "total_density", zoo_design,
+                         residual_checks = FALSE, seed = 1, quiet = TRUE)
+zoo_fit
+zoo_choice <- suggest(zoo_fit)
+zoo_choice$null_models
+```
+
+A non-significant interaction is not evidence of additivity. To ask whether
+the combination follows a null model, a margin is declared, here generously:
+deviations smaller than half the density of the reference combination are
+taken as negligible (`margin = 0.5`; see "Additive, or only not detected?"
+in `vignette("must")`).
+
+```{r zoo-estimate}
+zoo_est <- estimate_interactions(zoo_fit, null_models = zoo_choice, n_sim = 4000,
+                                 seed = 2024, margin = 0.5)
+e <- zoo_est$estimates
+# Effects of warming alone, as multiples of the density at ambient temperature
+warming <- e[e$component == "single" & e$stressor %in% "temperature" &
+               e$null_model == "MU" & e$time != "overall",
+             c("time", "levels", "estimate", "lower", "upper", "p_adjusted")]
+warming$levels <- sub(".*temperature=", "", warming$levels)
+warming[c("estimate", "lower", "upper")] <- round(exp(warming[c("estimate", "lower", "upper")]), 2)
+warming$p_adjusted <- signif(warming$p_adjusted, 2)
+warming
+```
+
+The heatwaves reduced the zooplankton to about a third of its density at
+ambient temperature on the three samplings of the heat phase, and elevated
+temperature on the first two; after the heat phase the densities recovered.
+The intervals of those effects exclude no change, but their adjusted
+p-values are just above 0.05: intervals are not adjusted for the twelve sets
+and times, p-values are.
+
+```{r zoo-interactions, fig.width = 7, fig.height = 4}
+summary(zoo_est)
+plot(zoo_est, null_model = "MU")
+rel <- e[e$component == "interaction" & e$null_model == "MU" & e$time != "overall",
+         c("time", "levels", "relative", "relative_lower", "relative_upper")]
+rel$levels <- sub(".*temperature=", "", rel$levels)
+rel[3:5] <- lapply(rel[3:5], round, 2)
+rel
+```
+
+No interaction deviates from any null model after the adjustment, and none
+is equivalent either: every verdict is inconclusive. The relative deviations
+under MU, (observed − expected) / reference, have intervals far wider than
+±0.5. With four mesocosms per combination and densities this variable, the
+experiment cannot tell additivity from interactions as large as the effects
+of the stressors themselves.
+
+### Chironomids
+
+The larvae of the chironomids recorded in `hermann_macroinvertebrates`
+(Chironomini, Orthocladiinae and Tanypodinae) are added into one count.
+Macroinvertebrates were sampled a week before the first application (day
+-7) and every two weeks after it.
+
+```{r chiro}
+macro_h <- hermann_macroinvertebrates
+macro_h$chironomidae <- macro_h$chironomini + macro_h$orthocladiinae + macro_h$tanypodinae
+chiro_design <- describe_design(macro_h, h_stressors, h_control, unit = "mesocosm",
+                                time = "day", baseline = -7)
+chiro_fit <- fit_responses(macro_h, "chironomidae", chiro_design, residual_checks = FALSE,
+                           seed = 1, quiet = TRUE)
+chiro_fit
+chiro_est <- estimate_interactions(chiro_fit, null_models = suggest(chiro_fit),
+                                   n_sim = 4000, seed = 2024)
+summary(chiro_est)
+before <- macro_h[macro_h$day == -7, ]
+round(tapply(before$chironomidae, list(before$imidacloprid, before$temperature), mean), 1)
+```
+
+Neither stressor alone has a detectable effect on the larvae, and no
+interaction is detected. Before the treatments, the mesocosms assigned to
+the control already held about three times as many larvae as most of the
+others: with four mesocosms per combination, chance differences among
+groups of mesocosms are as large as many treatment effects.
+
+### Leaf litter decomposition
+
+Leaf litter in coarse-mesh bags, open to macroinvertebrates, lost mass by
+microbial decomposition and by macroinvertebrate feeding.
+`mass_loss_percent` is the share of the initial 2 g that each bag lost; one
+bag gained mass, and its percentage is missing in the source.
+
+```{r litter}
+litter <- hermann_leaf_litter[hermann_leaf_litter$process == "macroinvertebrate feeding", ]
+litter_design <- describe_design(litter, h_stressors, h_control, unit = "mesocosm",
+                                 time = "day")
+litter_fit <- fit_responses(litter, "mass_loss_percent", litter_design,
+                            residual_checks = FALSE, seed = 1, quiet = TRUE)
+litter_fit
+litter_choice <- suggest(litter_fit)
+litter_choice$models[, c("null_model", "status")]
+writeLines(strwrap(litter_choice$models$reason[litter_choice$models$null_model == "MU"], 80))
+```
+
+Here the guidelines exclude the multiplicative model. The effects of the
+stressors alone are far from the effect limit (no decomposition at all),
+their sum never exceeds it, and the effect is not mortality: neither step 5
+nor step 6 of the guidelines, which lead to MU, is reached. The null models
+suggested depend on the effects estimated for each response, not only on
+what is known about the stressors.
+
+```{r litter-estimate}
+litter_est <- estimate_interactions(litter_fit, null_models = litter_choice, n_sim = 4000,
+                                    seed = 2024)
+summary(litter_est)
+e <- litter_est$estimates
+# Effects of warming alone on the mass lost, in percentage points
+warming <- e[e$component == "single" & e$null_model == "AD" &
+               e$stressor %in% "temperature" & e$time != "overall",
+             c("time", "levels", "estimate", "lower", "upper", "p_adjusted")]
+warming$levels <- sub(".*temperature=", "", warming$levels)
+warming[c("estimate", "lower", "upper")] <- round(warming[c("estimate", "lower", "upper")], 1)
+warming$p_adjusted <- signif(warming$p_adjusted, 2)
+warming
+```
+
+The heatwaves increased the loss of mass by 12 to 18 percentage points on
+the collections of days 25, 39 and 81, and no interaction with imidacloprid
+is detected.
+
+## Methods and decisions
+
+`report_interactions()` writes the methods of each analysis from its
+objects. For the zooplankton of Hermann et al. (2024), with its classes and
+the agreement among null models:
+
+```{r report}
+zoo_report <- report_interactions(zoo_est, classes = classify_interactions(zoo_est),
+                                  agreement = compare_null_models(zoo_est))
+cat(zoo_report$methods, sep = "\n\n")
+zoo_report$decisions[!zoo_report$decisions$source %in% c("default", "recorded"),
+                     c("decision", "value", "source")]
+```
+
+## What the two experiments show
+
+* **Few interactions survive.** With three or four mesocosms per
+  combination, several contrast sets and several samplings, few
+  interactions remain significant once the p-values are adjusted. Averages
+  over the samplings (`time = "overall"`) are more powerful, as for the
+  herbicide and nutrients on the phytoplankton.
+* **Not detected is not additive.** The tests of equivalence on the
+  zooplankton of Hermann et al. (2024) were all inconclusive, even with a
+  margin of half the reference density.
+* **The null model decides some interactions.** The interaction of the two
+  pesticides on the phytoplankton deviates only from dominance: only a
+  mechanistic hypothesis about the correlation of the sensitivities can say
+  whether it is an interaction.
+* **The suggestion depends on the data.** Within the same experiment, the
+  guidelines left AD, MU and DO for the zooplankton and only AD and DO for
+  leaf litter decomposition, because the effects of the stressors alone
+  differ between the responses.
+* **Totals can hide sensitive taxa.** The total of the macroinvertebrates
+  did not change while chlorpyrifos eliminated the mayfly *Cloeon*, whose
+  interactions could not be measured on that day.
+
+## References
+
+Hermann, M., Polazzo, F., Cherta, L., Crettaz-Minaglia, M.,
+García-Astillero, A., Peeters, E. T. H. M., Rico, A., & Van den Brink, P. J.
+(2024). Combined stress of an insecticide and heatwaves or elevated
+temperature induce community and food web effects in a Mediterranean
+freshwater ecosystem. *Water Research*, 260, 121903.
+<https://doi.org/10.1016/j.watres.2024.121903>. Data:
+<https://doi.org/10.5281/zenodo.11520459> (CC BY 4.0).
+
+Madge Pimentel, I., Albini, D., Beermann, A. J., Leese, F., Macaulay, S. J.,
+Matthaei, C. D., Orr, J. A., Piggott, J. J., & Schäfer, R. B. (2025).
+Hypothesis-driven research on multiple stressors: An analytical framework for
+stressor interactions. *Ecology and Evolution*, 15, e71959.
+<https://doi.org/10.1002/ece3.71959>
+
+Piggott, J. J., Townsend, C. R., & Matthaei, C. D. (2015). Reconceptualizing
+synergism and antagonism among multiple stressors. *Ecology and Evolution*,
+5(7), 1538–1547. <https://doi.org/10.1002/ece3.1465>
+
+Polazzo, F., & Rico, A. (2021). Effects of multiple stressors on the
+dimensionality of ecological stability. *Ecology Letters*, 24(8), 1594–1606.
+<https://doi.org/10.1111/ele.13770>. Data:
+<https://doi.org/10.5061/dryad.qfttdz0gt> (CC0 1.0).
+
+Schäfer, R. B., & Piggott, J. J. (2018). Advancing understanding and
+prediction in multiple stressor research through a mechanistic basis for null
+models. *Global Change Biology*, 24(5), 1817–1826.
+<https://doi.org/10.1111/gcb.14073>

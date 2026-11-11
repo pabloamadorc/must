@@ -132,3 +132,58 @@ survival_jars <- function(n = 10L) {
   d$id <- seq_len(nrow(d))
   d
 }
+
+# Dose-response data whose cell means follow concentration addition exactly:
+# log-logistic curves with EC50 = 2 and slope 1.5 (a) and EC50 = 5 and slope 2
+# (b).
+ca_factorial <- function(a = c(0, 1, 2, 4), b = c(0, 2, 5, 10)) {
+  curve_a <- function(x) 1 / (1 + (x / 2)^1.5)
+  curve_b <- function(x) 1 / (1 + (x / 5)^2)
+  ca <- function(xa, xb) {
+    if (xa == 0) return(curve_b(xb))
+    if (xb == 0) return(curve_a(xa))
+    eq <- function(w) xa / (2 * ((1 - w) / w)^(1 / 1.5)) + xb / (5 * ((1 - w) / w)^(1 / 2)) - 1
+    stats::uniroot(eq, c(1e-9, 1 - 1e-9), tol = 1e-13)$root
+  }
+  g <- expand.grid(a = a, b = b)
+  g$w <- mapply(ca, g$a, g$b)
+  d <- g[rep(seq_len(nrow(g)), each = 4), ]
+  d$y <- 100 * d$w * rep(c(0.97, 0.99, 1.01, 1.03), nrow(g))
+  d$id <- seq_len(nrow(d))
+  rownames(d) <- NULL
+  d
+}
+
+# The same two stressors under two exposure regimes (pulse and press) with a
+# control shared by both (regime "both"); four units per cell.
+shared_regimes <- function() {
+  cells <- data.frame(
+    regime = c("both", "pulse", "pulse", "pulse", "press", "press", "press"),
+    a = c("0", "1", "0", "1", "1", "0", "1"),
+    b = c("0", "0", "1", "1", "0", "1", "1"),
+    mean = c(10, 8, 7, 3, 9, 6, 5),
+    stringsAsFactors = FALSE
+  )
+  d <- cells[rep(seq_len(7), each = 4), ]
+  d$y <- d$mean + rep(c(-0.6, -0.2, 0.3, 0.5), 7)
+  d$id <- seq_len(nrow(d))
+  rownames(d) <- NULL
+  d
+}
+
+# Full 2 x 2 x 2 factorial, three tanks per cell sampled on days 0, 10 and 20.
+three_way_repeated <- function() {
+  tanks <- expand.grid(n = c("0", "1"), s = c("0", "1"), f = c("0", "1"), rep = 1:3,
+                       stringsAsFactors = FALSE)
+  tanks$tank <- paste0("T", seq_len(nrow(tanks)))
+  d <- tanks[rep(seq_len(nrow(tanks)), times = 3), ]
+  d$day <- rep(c(0, 10, 20), each = nrow(tanks))
+  na <- d$n == "1"
+  sa <- d$s == "1"
+  fa <- d$f == "1" & d$day > 0
+  tank_effect <- round(sin(seq_len(nrow(tanks)) * 1.7), 2)[match(d$tank, tanks$tank)]
+  d$y <- 20 - 3 * na - 4 * sa - 2 * fa + 1.5 * na * sa + tank_effect +
+    round(sin(seq_len(nrow(d)) * 2.3) * 0.8, 2)
+  rownames(d) <- NULL
+  d
+}

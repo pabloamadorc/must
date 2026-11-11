@@ -24,7 +24,7 @@
 #   those degrees of freedom, and the other sets lose them.
 # Families without a dispersion parameter and without random effects
 # (Poisson, binomial) keep the normal distribution, as in glm().
-set_df <- function(info, s, correction) {
+set_df <- function(info, s, correction, contexts = s$context) {
   if (identical(correction, "none") || is.null(info) ||
       (!info$has_dispersion && !info$has_random)) {
     return(Inf)
@@ -34,7 +34,8 @@ set_df <- function(info, s, correction) {
   }
   # One dispersion per `by` group only matters for families that have one.
   per_context <- identical(info$dispersion, "by") && info$has_dispersion
-  rows <- if (per_context) info$contexts[info$contexts$context == s$context, , drop = FALSE] else info$contexts
+  # `contexts`: the `by` group of the set and those of the shared rows it uses.
+  rows <- if (per_context) info$contexts[info$contexts$context %in% contexts, , drop = FALSE] else info$contexts
   base <- if (info$repeated) {
     sum(rows$n_units) - sum(rows$n_unit_groups)
   } else {
@@ -44,7 +45,7 @@ set_df <- function(info, s, correction) {
   in_set <- strsplit(s$stressors, " x ", fixed = TRUE)[[1L]]
   limits <- numeric()
   for (w in info$whole) {
-    wr <- if (per_context) w$contexts[w$contexts$context == s$context, , drop = FALSE] else w$contexts
+    wr <- if (per_context) w$contexts[w$contexts$context %in% contexts, , drop = FALSE] else w$contexts
     whole_df <- sum(wr$n_groups) - sum(wr$n_combos) - sum(wr$block_df)
     if (any(in_set %in% w$between)) {
       limits <- c(limits, whole_df)
@@ -70,9 +71,7 @@ welch_df <- function(v, m) {
 }
 
 # Predictions of the selected model at the grid of treatment combinations and
-# times, with what the estimators need. Simulation draws are made lazily, on
-# the first request, so that the delta method uses no random numbers unless a
-# boundary test needs them.
+# times, with what the estimators need.
 prepare_predictions <- function(f, model, n_sim, complement = FALSE) {
   beta <- glmmTMB::fixef(model)$cond
   V <- as.matrix(stats::vcov(model)$cond)
@@ -86,21 +85,49 @@ prepare_predictions <- function(f, model, n_sim, complement = FALSE) {
   V[fixed_par, ] <- 0
   V[, fixed_par] <- 0
   fam <- stats::family(model)
-  eta <- drop(X %*% beta)
+  pred <- prediction_engine(grid, X, V, eta = drop(X %*% beta), link = fam, n_sim = n_sim,
+                            complement = complement, free = !fixed_par)
+  pred$family <- fam
+  pred$model <- model
+  pred$stable <- stabilizing_scale(fam, theta = nbinom2_theta(model))
+  pred$at_boundary <- as.character(grid$.cell_time) %in% names(f$boundary)
+  pred$boundary_type <- f$boundary[match(as.character(grid$.cell_time), names(f$boundary))]
+  # Welch-Satterthwaite degrees of freedom of a contrast whose cells have their
+  # own dispersion (set_df() gives NA), from the variance contributions of its
+  # cells; `g` is the gradient of the contrast with respect to their linear
+  # predictors.
+  V_eta <- pred$V_eta
+  pred$contrast_df <- function(g, cols) {
+    v <- g^2 * diag(V_eta)[cols]
+    units <- f$df_info$cell_units[as.character(grid$.cell_time[cols])]
+    welch_df(v, as.numeric(units))
+  }
+  pred
+}
+
+# Means of the cells of `grid` and their simulation draws, from the linear
+# predictor eta = X beta and the covariance V of beta (only the parameters in
+# `free` vary). `link` has linkinv() and mu.eta(); with `complement` the means
+# are 1 - linkinv(eta). Simulation draws are made lazily, on the first
+# request, so that the delta method uses no random numbers unless a boundary
+# test needs them. The caller adds contrast_df(g, cols), the degrees of
+# freedom of a contrast with gradient `g` with respect to eta[cols].
+prediction_engine <- function(grid, X, V, eta, link, n_sim, complement = FALSE,
+                              free = rep(TRUE, ncol(X))) {
   env <- new.env(parent = emptyenv())
   env$dev_eta <- NULL
   env$scales <- list()
   env$problem <- ""
   draws_dev <- function() {
     if (is.null(env$dev_eta) && !nzchar(env$problem)) {
-      free <- which(!fixed_par)
-      L <- tryCatch(chol(V[free, free, drop = FALSE]), error = function(e) NULL)
+      idx <- which(free)
+      L <- tryCatch(chol(V[idx, idx, drop = FALSE]), error = function(e) NULL)
       if (is.null(L)) {
         env$problem <- "The covariance matrix of the fixed effects is not positive definite."
       } else {
-        Z <- matrix(stats::rnorm(n_sim * length(free)), nrow = n_sim)
-        dev_beta <- matrix(0, nrow = n_sim, ncol = length(beta))
-        dev_beta[, free] <- Z %*% L
+        Z <- matrix(stats::rnorm(n_sim * length(idx)), nrow = n_sim)
+        dev_beta <- matrix(0, nrow = n_sim, ncol = ncol(X))
+        dev_beta[, idx] <- Z %*% L
         env$dev_eta <- dev_beta %*% t(X)
       }
     }
@@ -117,21 +144,27 @@ prepare_predictions <- function(f, model, n_sim, complement = FALSE) {
     env$scales[[key]]
   }
   to_mean <- function(eta_values) {
-    mu <- fam$linkinv(eta_values)
+    mu <- link$linkinv(eta_values)
     if (complement) 1 - mu else mu
   }
+  n <- nrow(grid)
   list(
     grid = grid,
     eta = eta,
     mu = to_mean(eta),
-    dmu = if (complement) -fam$mu.eta(eta) else fam$mu.eta(eta),
+    dmu = if (complement) -link$mu.eta(eta) else link$mu.eta(eta),
+    # Means from values of the linear predictor (a vector or a matrix).
+    to_mean = to_mean,
+    # Variance-stabilizing scale of the means for the tests of equivalence
+    # (see stabilizing_scale()); NULL uses the scale of the linear predictor.
+    stable = NULL,
     V_eta = X %*% V %*% t(X),
     n_sim = n_sim,
-    family = fam,
-    model = model,
     complement = complement,
-    at_boundary = as.character(grid$.cell_time) %in% names(f$boundary),
-    boundary_type = f$boundary[match(as.character(grid$.cell_time), names(f$boundary))],
+    at_boundary = rep(FALSE, n),
+    boundary_type = rep(NA_character_, n),
+    # Cells whose mean cannot be used ("" if it can): see external_problems().
+    cell_problem = rep("", n),
     sim_problem = function() {
       draws_dev()
       env$problem

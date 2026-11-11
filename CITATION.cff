@@ -1,0 +1,35 @@
+cff-version: 1.2.0
+message: "If you use must, please cite it as below."
+type: software
+title: "must: Multiple-Stressor Interactions Under Alternative Null Models"
+version: 0.2.0
+authors:
+  - family-names: Amador Crespo
+    given-names: Pablo
+    orcid: "https://orcid.org/0000-0002-3793-8794"
+abstract: >-
+  Detects and classifies non-additive effects of multiple stressors in
+  experiments, testing each combination of stressors against alternative
+  null models with the same criteria. Before any model is fitted, the design
+  is described: missing treatment combinations, cells shared by several
+  contrasts, replication units and repeated measures, and which
+  interactions it identifies. Interactions are tested from the adjusted
+  predictions of one model per response, by default with a small-sample
+  correction. The null models are simple addition (the default), the
+  multiplicative and dominance models, Bliss independence, the stress
+  addition model and concentration addition. For three or more stressors
+  the net deviation from the single-stressor effects is distinguished from
+  the pure highest-order interaction, and interactions can be classified
+  with the directional scheme of Piggott et al. (2015).
+keywords:
+  - multiple stressors
+  - stressor interactions
+  - null models
+  - synergism
+  - antagonism
+  - ecology
+  - ecotoxicology
+  - R
+license: MIT
+repository-code: "https://github.com/pabloamadorc/must"
+url: "https://pabloamadorc.github.io/must/"

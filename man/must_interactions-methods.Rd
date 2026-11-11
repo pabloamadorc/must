@@ -30,8 +30,8 @@ example \code{main} or \code{xlim}); ignored by \code{summary()}.}
 
 \item{response}{Name of the response to plot. Default: the first one.}
 
-\item{null_model}{Null model to plot: \code{"AD"} (default), \code{"MU"} or
-\code{"DO"}.}
+\item{null_model}{Null model to plot, among those estimated: \code{"AD"}
+(default), \code{"MU"}, \code{"DO"}, \code{"BL"}, \code{"SAM"} or \code{"CA"}.}
 
 \item{estimand}{\code{"net"} (default) or \code{"pure"}.}
 
@@ -46,13 +46,21 @@ response, time, null model and estimand: \code{n_sets}, \code{n_tested} (status
 \code{alpha}), \code{n_positive}, \code{n_negative}, \code{n_boundary}, \code{n_not_estimable}
 and \code{n_other} (not identifiable, not defined or not applicable)),
 \code{classes} (number of sets of each class per response, time and null
-model) and \code{settings}. \code{plot()} returns \code{x} invisibly.
+model), \code{agreement} (with two or more null models: number of
+interactions per response, time and estimand that are \code{n_robust},
+\code{n_model_dependent}, \code{n_conflicting}, \code{n_none} or \code{n_not_compared};
+\code{NULL} otherwise), \code{verdicts} (with an equivalence \code{margin} in
+\code{\link[=estimate_interactions]{estimate_interactions()}}: number of interactions per response, time,
+null model and estimand with each verdict, \code{n_deviation},
+\code{n_negligible}, \code{n_equivalent} and \code{n_inconclusive}; \code{NULL} otherwise)
+and \code{settings}. \code{plot()} returns \code{x} invisibly.
 }
 \description{
 \code{summary()} counts, for each response, sampling time, null model and
 estimand, the interactions that were tested and those that deviate from
-the null model, and tabulates their classes (see
-\code{\link[=classify_interactions]{classify_interactions()}}). \code{plot()} draws the estimated interactions of
+the null model, tabulates their classes (see \code{\link[=classify_interactions]{classify_interactions()}})
+and, with two or more null models, how often they agree (see
+\code{\link[=compare_null_models]{compare_null_models()}}). \code{plot()} draws the estimated interactions of
 one response and null model with their intervals.
 }
 \details{
@@ -78,7 +86,7 @@ design <- describe_design(jars, c("salinity", "warming"),
   control = c(salinity = "ambient", warming = "no"), unit = "jar")
 fits <- fit_responses(jars, "algae", design, residual_checks = FALSE,
   seed = 1, quiet = TRUE)
-est <- estimate_interactions(fits, n_sim = 2000, seed = 1)
+est <- estimate_interactions(fits, null_models = c("AD", "MU"), n_sim = 2000, seed = 1)
 summary(est)
 plot(est, null_model = "MU")
 }

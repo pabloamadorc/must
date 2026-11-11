@@ -420,3 +420,44 @@ test_that("residual checks run with DHARMa when it is installed", {
   again <- fit_responses(d, "count", design_2x2(d), seed = 1, n_sim_residuals = 250, quiet = TRUE)
   expect_identical(again$fits$count$selection, sel)
 })
+
+test_that("the default Poisson for counts is selected only if the negative binomial fails", {
+  sel <- data.frame(family = c("poisson", "nbinom2"), link = "log", converged = TRUE,
+                    aic = c(100, 101), residuals_ok = NA, n_tests_passed = NA_integer_,
+                    stringsAsFactors = FALSE)
+  # Lower AIC, but only a fallback
+  expect_equal(select_candidate(sel, FALSE, FALSE, fallback = "poisson")$best, 2L)
+  # Without the rule (candidates given in `families`), the AIC decides
+  expect_equal(select_candidate(sel, FALSE, FALSE)$best, 1L)
+  # The negative binomial did not converge: the Poisson, with a note
+  failed <- sel
+  failed$converged[2] <- FALSE
+  failed$aic[2] <- NA
+  chosen <- select_candidate(failed, FALSE, FALSE, fallback = "poisson")
+  expect_equal(chosen$best, 1L)
+  expect_match(chosen$notes, "'nbinom2' did not converge")
+  # A negative binomial that fails the residual checks still comes first
+  checked <- sel
+  checked$residuals_ok <- c(TRUE, FALSE)
+  checked$n_tests_passed <- c(3L, 2L)
+  chosen <- select_candidate(checked, TRUE, FALSE, fallback = "poisson")
+  expect_equal(chosen$best, 2L)
+  expect_false(chosen$checks_passed)
+})
+
+test_that("fit_responses() says when it falls back to the Poisson", {
+  d <- two_by_two_counts()
+  des <- describe_design(d, c("a", "b"), control = c(a = "0", b = "0"), unit = "id")
+  f <- fit_responses(d, "count", des, residual_checks = FALSE, quiet = TRUE)$fits$count
+  # These counts are less variable than a Poisson: the negative binomial
+  # cannot estimate its overdispersion
+  if (identical(f$family, "poisson")) {
+    expect_match(f$reason, "'nbinom2' did not converge")
+  } else {
+    expect_equal(f$family, "nbinom2")
+  }
+  # With the candidates given, no fallback rule
+  user <- fit_responses(d, "count", des, residual_checks = FALSE, quiet = TRUE,
+                        families = list(poisson = stats::poisson(), nbinom2 = glmmTMB::nbinom2()))
+  expect_false(grepl("did not converge", user$fits$count$reason))
+})

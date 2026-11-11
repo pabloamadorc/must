@@ -163,7 +163,7 @@ boundary_parameters <- function(model, rows) {
 # cell is the single-stressor cell for single effects and the full
 # combination otherwise; for single and combined effects the null
 # hypothesis is equality with the reference cell.
-expected_full <- function(M, component, estimand, null_model, m, weights) {
+expected_full <- function(M, component, estimand, null_model, m, weights, shape = NULL) {
   y0 <- M[, 1L]
   singles <- M[, 1L + seq_len(m), drop = FALSE]
   full <- ncol(M)
@@ -171,6 +171,12 @@ expected_full <- function(M, component, estimand, null_model, m, weights) {
     return(y0)
   }
   if (identical(estimand, "pure")) {
+    if (identical(null_model, "BL")) {
+      # No emergent interaction: w_XYZ = w_X w_YZ + w_Y w_XZ + w_Z w_XY - 2 w_X w_Y w_Z.
+      W <- M / y0
+      return(y0 * (W[, 2L] * W[, 7L] + W[, 3L] * W[, 6L] + W[, 4L] * W[, 5L] -
+                     2 * W[, 2L] * W[, 3L] * W[, 4L]))
+    }
     rest <- M[, -full, drop = FALSE]
     w <- weights[-full]
     return(if (identical(null_model, "MU")) exp(-drop(log(rest) %*% w)) else -drop(rest %*% w))
@@ -178,7 +184,10 @@ expected_full <- function(M, component, estimand, null_model, m, weights) {
   switch(
     null_model,
     AD = y0 + rowSums(singles - y0),
-    MU = y0 * apply(singles / y0, 1L, prod),
-    DO = pmin(apply(singles, 1L, min), y0)
+    MU = ,
+    BL = y0 * apply(singles / y0, 1L, prod),
+    DO = pmin(apply(singles, 1L, min), y0),
+    SAM = y0 * sam_expected(singles / y0, shape),
+    abort_internal(sprintf("no expected boundary mean for null model '%s'.", null_model))
   )
 }

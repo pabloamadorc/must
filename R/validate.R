@@ -6,6 +6,30 @@
 # Every validator returns its input invisibly, so it can be used as a
 # statement, and accepts `call` so the error shows the user's call.
 
+# Methods that do not use `...` reject what it holds, so that a misspelt
+# argument is not silently ignored.
+check_dots_empty <- function(..., call = sys.call(-1)) {
+  n <- ...length()
+  if (n == 0L) {
+    return(invisible(TRUE))
+  }
+  labels <- names(list(...))
+  if (is.null(labels)) {
+    labels <- rep("", n)
+  }
+  labels <- ifelse(nzchar(labels), quote_items(labels), "an unnamed value")
+  abort_input(
+    sprintf(
+      paste(
+        "Unknown argument(s): %s. Check the spelling; arguments passed on to",
+        "emmeans are only used with models fitted outside must."
+      ),
+      format_items(labels)
+    ),
+    call = call
+  )
+}
+
 # `x` must be a data frame (tibbles are data frames). Grouped data frames are
 # rejected because their groups would be silently ignored.
 check_data_frame <- function(x, arg = arg_name(substitute(x)), allow_empty = TRUE,

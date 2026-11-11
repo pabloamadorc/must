@@ -4,3 +4,8 @@
 ^README\.Rmd$
 ^data-raw$
 ^\.github$
+^vignettes/articles$
+^_pkgdown\.yml$
+^docs$
+^pkgdown$
+^CITATION\.cff$

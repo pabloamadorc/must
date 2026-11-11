@@ -9,3 +9,8 @@ must_*.tar.gz
 
 # Source data downloaded to rebuild data/ (see data-raw/)
 data-raw/*.xlsx
+data-raw/*.csv
+data-raw/*.txt
+
+# Website built locally with pkgdown (GitHub Actions publishes it)
+docs/

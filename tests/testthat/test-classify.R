@@ -59,7 +59,7 @@ test_that("a strong negative deviation is classified as negative synergism", {
   des <- describe_design(d, c("a", "b"), control = c(a = "0", b = "0"), unit = "id")
   fit <- fit_responses(d, "y", des, families = list(gaussian = stats::gaussian()),
                        residual_checks = FALSE, quiet = TRUE)
-  est <- estimate_interactions(fit, n_sim = 4000, seed = 3)
+  est <- estimate_interactions(fit, null_models = c("AD", "MU", "DO"), n_sim = 4000, seed = 3)
   cls <- classify_interactions(est)
   ad <- cls[cls$null_model == "AD", ]
   expect_equal(ad$code_a, "-")
@@ -111,17 +111,39 @@ test_that("combinations with only zeros are classified, and not_applicable rows 
   des <- describe_design(d, c("a", "b"), control = c(a = "0", b = "0"), unit = "id")
   fit <- fit_responses(d, "y", des, families = list(poisson = stats::poisson()),
                        residual_checks = FALSE, quiet = TRUE)
-  est <- estimate_interactions(fit, n_sim = 2000, seed = 1, sensitivity = "y")
+  est <- estimate_interactions(fit, null_models = c("AD", "MU", "DO"), n_sim = 2000, seed = 1,
+                               sensitivity = "y")
   cls <- classify_interactions(est)
   ad <- cls[cls$null_model == "AD", ]
   expect_equal(ad$status, "ok")
   expect_equal(ad$class, "-S")
   expect_equal(cls$status[cls$null_model == "MU"], "not_applicable")
-  est2 <- estimate_interactions(fit, n_sim = 2000, seed = 1)
+  est2 <- estimate_interactions(fit, null_models = c("AD", "MU", "DO"), n_sim = 2000, seed = 1)
   mu <- classify_interactions(est2)
   mu <- mu[mu$null_model == "MU", ]
   expect_equal(mu$code_interaction, "--")
   expect_equal(mu$class, "-S")
+})
+
+test_that("Bliss interactions are classified against the product of relative effects", {
+  d <- two_by_two_counts()
+  des <- describe_design(d, c("a", "b"), control = c(a = "0", b = "0"), unit = "id")
+  fit <- fit_responses(d, "count", des, families = list(poisson = stats::poisson()),
+                       residual_checks = FALSE, quiet = TRUE)
+  est <- estimate_interactions(fit, null_models = c("MU", "BL"), n_sim = 2000, seed = 1)
+  cls <- classify_interactions(est)
+  bl <- cls[cls$null_model == "BL", ]
+  mu <- cls[cls$null_model == "MU", ]
+  expect_equal(bl$status, "ok")
+  expect_equal(bl$scale, "response / control")
+  # Same tests as MU, so the same codes and class
+  expect_equal(bl[c("code_a", "code_b", "code_interaction", "class")],
+               mu[c("code_a", "code_b", "code_interaction", "class")], ignore_attr = TRUE)
+  expect_match(bl$meaning, "Bliss independence expectation")
+  sam <- classify_interactions(estimate_interactions(fit, null_models = "SAM", n_sim = 2000,
+                                                     seed = 1))
+  expect_equal(sam$status, "ok")
+  expect_match(sam$meaning, "stress addition expectation")
 })
 
 test_that("classify_interactions() checks its input", {

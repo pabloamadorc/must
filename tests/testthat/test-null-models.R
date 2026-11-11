@@ -111,3 +111,110 @@ test_that("Welch-Satterthwaite degrees of freedom match the two-sample formula",
   expect_equal(welch_df(c(1, 0), c(1, 5)), 0)
   expect_equal(welch_df(c(0, 0), c(5, 5)), Inf)
 })
+
+test_that("Bliss contrasts follow Beppler et al. (2016)", {
+  # Two stressors: w = (1, 0.5, 0.7, 0.25)
+  M <- matrix(c(20, 10, 14, 5), nrow = 1)
+  w <- contrast_weights(2)
+  specs <- component_specs("BL", 2, c("a", "b"), w)
+  values <- vapply(specs, function(sp) bliss_contrast(M, 2, sp), numeric(1))
+  # Single and combined effects w - 1; net interaction wAB - wA wB (eq. 2.1)
+  expect_equal(values, c(-0.5, -0.3, -0.75, 0.25 - 0.5 * 0.7))
+  # Three stressors: net DA (eq. 2.2) and emergent E3 (eq. 2.4)
+  y <- c(20, 16, 12, 18, 9, 13.5, 10, 6)
+  W <- y / y[[1L]]
+  M3 <- matrix(y, nrow = 1)
+  w3 <- contrast_weights(3)
+  net <- list(component = "interaction", estimand = "net", weights = w3$net)
+  pure <- list(component = "interaction", estimand = "pure", weights = w3$pure)
+  expect_equal(bliss_contrast(M3, 3, net), W[[8]] - W[[2]] * W[[3]] * W[[4]])
+  e3 <- W[[8]] - W[[2]] * W[[7]] - W[[3]] * W[[6]] - W[[4]] * W[[5]] +
+    2 * W[[2]] * W[[3]] * W[[4]]
+  expect_equal(bliss_contrast(M3, 3, pure), e3)
+  # E3 = DA minus the pairwise interactions weighted by the third stressor
+  # (eq. 2.3)
+  pair <- function(xy, x, yy) W[[xy]] - W[[x]] * W[[yy]]
+  expect_equal(e3, bliss_contrast(M3, 3, net) - W[[2]] * pair(7, 3, 4) -
+                 W[[3]] * pair(6, 2, 4) - W[[4]] * pair(5, 2, 3))
+  # With Bliss-additive pairs, E3 and DA coincide
+  y2 <- c(10, 8, 5, 4, 4, 3.2, 2, 1)
+  expect_equal(bliss_contrast(matrix(y2, nrow = 1), 3, pure),
+               bliss_contrast(matrix(y2, nrow = 1), 3, net))
+  expect_error(bliss_contrast(matrix(1, nrow = 1, ncol = 16), 4, pure),
+               class = "must_error_internal")
+})
+
+test_that("rescaled Bliss interactions reach -1 at lethal synergy and 1 at full buffering", {
+  # w = (1, 0.5, 0.7, wAB): lethal synergy (wAB = 0), buffering (wAB = 0.5)
+  M <- function(ab) matrix(c(20, 10, 14, 20 * ab), nrow = 1)
+  value <- function(ab) ab - 0.5 * 0.7
+  expect_equal(bliss_rescaled(value(0), M(0), 2), -1)
+  expect_equal(bliss_rescaled(value(0.5), M(0.5), 2), 1)
+  expect_equal(bliss_rescaled(value(0.25), M(0.25), 2), (0.25 - 0.35) / 0.35)
+  expect_equal(bliss_rescaled(value(0.4), M(0.4), 2), (0.4 - 0.35) / (0.5 - 0.35))
+  expect_equal(bliss_rescaled(0, M(0.35), 2), 0)
+  expect_equal(bliss_class(c(-0.8, -0.5, 0.2, 0.51, NA)),
+               c("synergy", "additive", "additive", "antagonism", NA))
+  # Three stressors: the denominator replaces wXYZ by 0 or by min(wX, wY, wZ)
+  y <- c(20, 16, 12, 18, 9, 13.5, 10, 6)
+  W <- y / y[[1L]]
+  e3 <- W[[8]] - W[[2]] * W[[7]] - W[[3]] * W[[6]] - W[[4]] * W[[5]] +
+    2 * W[[2]] * W[[3]] * W[[4]]
+  expect_equal(bliss_rescaled(e3, matrix(y, nrow = 1), 3), e3 / abs(e3 - W[[8]]))
+})
+
+test_that("Bliss expectations multiply the relative single effects", {
+  expect_equal(expected_combined(c(20, 10, 14, 5), 2, "BL"), 20 * 0.5 * 0.7)
+  expect_true(is.na(expected_combined(c(0, 1, 2, 3), 2, "BL")))
+  expect_equal(null_model_scale("BL"), "response / control")
+})
+
+test_that("the stress addition model adds general stress (Liess et al. 2016)", {
+  # A single stressor is predicted by itself: the beta quantile and the beta
+  # distribution function are inverse
+  expect_equal(sam_expected(matrix(0.7, nrow = 1), 3.2), 0.7)
+  # No stress from a stressor at or above the reference
+  expect_equal(sam_expected(matrix(c(1, 0.8), nrow = 1), 3.2), 0.8)
+  expect_equal(sam_expected(matrix(c(1.2, 0.8), nrow = 1), 3.2), 0.8)
+  # Two stressors killing half each exert a total stress of 1: no survivors
+  expect_equal(sam_expected(matrix(c(0.5, 0.5), nrow = 1), 3.2), 0)
+  # By hand, eqs. 2-5: S = qbeta(0.1) + qbeta(0.2), survival 1 - pbeta(S)
+  s <- stats::qbeta(0.1, 3.2, 3.2) + stats::qbeta(0.2, 3.2, 3.2)
+  expect_equal(sam_expected(matrix(c(0.9, 0.8), nrow = 1), 3.2),
+               1 - stats::pbeta(s, 3.2, 3.2))
+  # More synergistic than Bliss independence for these effects
+  expect_lt(sam_expected(matrix(c(0.9, 0.8), nrow = 1), 3.2), 0.9 * 0.8)
+  # Rows are evaluated separately
+  expect_equal(sam_expected(rbind(c(0.7, 1), c(0.5, 0.5)), 3.2), c(0.7, 0))
+  sp <- list(component = "interaction", estimand = "net", shape = 3.2)
+  M <- matrix(c(20, 18, 16, 10), nrow = 1)
+  expect_equal(sam_contrast(M, 2, sp), 0.5 - sam_expected(matrix(c(0.9, 0.8), 1), 3.2))
+})
+
+test_that("log-logistic curves are fitted by least squares", {
+  dose <- c(1, 4, 16)
+  w <- 1 / (1 + (dose / 4)^2)
+  fit <- fit_loglogistic(matrix(w, nrow = 1), log(dose))
+  expect_equal(unname(fit[1, ]), c(2 * log(4), -2), tolerance = 1e-8)
+  noisy <- w + c(0.03, -0.04, 0.02)
+  fit2 <- fit_loglogistic(matrix(noisy, nrow = 1), log(dose))
+  ref <- stats::nls(noisy ~ stats::plogis(a + b * log(dose)), start = list(a = 2, b = -1.5))
+  expect_equal(unname(fit2[1, ]), unname(stats::coef(ref)), tolerance = 1e-5)
+  # Responses at or above the reference are kept in the fit
+  flat <- fit_loglogistic(matrix(c(1.02, 0.6, 0.1), nrow = 1), log(dose))
+  expect_true(flat[1, 2] < 0)
+})
+
+test_that("concentration addition solves sum(x_i / EC_i(w)) = 1", {
+  a <- fit_loglogistic(matrix(1 / (1 + (c(1, 4, 16) / 4)^2), nrow = 1), log(c(1, 4, 16)))
+  b <- fit_loglogistic(matrix(1 / (1 + (c(2, 10, 50) / 10)), nrow = 1), log(c(2, 10, 50)))
+  equation <- function(w) 4 / (4 * ((1 - w) / w)^(1 / 2)) + 10 / (10 * (1 - w) / w) - 1
+  expect_equal(ca_expected(list(a, b), c(4, 10)),
+               stats::uniroot(equation, c(1e-9, 1 - 1e-9), tol = 1e-12)$root, tolerance = 1e-8)
+  # A sham combination of a substance with itself is its curve at the summed dose
+  expect_equal(ca_expected(list(a, a), c(4, 4)), 1 / (1 + (8 / 4)^2), tolerance = 1e-8)
+  # A curve that does not decrease adds no dose equivalent
+  flat <- cbind(alpha = 0, beta = 0.5)
+  expect_equal(ca_expected(list(a, flat), c(4, 10)), 0.5, tolerance = 1e-8)
+  expect_equal(ca_expected(list(flat, flat), c(4, 10)), 1)
+})

@@ -22,7 +22,13 @@ test_that("the documented workflow runs end to end on polazzo_zooplankton", {
                c(total_density = "ok", daphnia = "ok"))
   expect_match(fits$fits$total_density$formula, "(1 | .unit)", fixed = TRUE)
 
-  est <- estimate_interactions(fits, n_sim = 500, seed = 1)
+  # The guidelines of Schaefer & Piggott (2018) leave the three null models of
+  # Madge Pimentel et al. (2025)
+  choice <- suggest_null_models(fits, similar_action = FALSE, specific_action = TRUE,
+                                mortality = FALSE, stressor_effect = FALSE)
+  expect_identical(choice$null_models, c("AD", "MU", "DO"))
+  expect_identical(nrow(choice$sets), 2L * 4L * 4L)
+  est <- estimate_interactions(fits, null_models = choice, n_sim = 500, seed = 1)
   e <- est$estimates
   # 4 sets x (4 days + their average) for each response
   int <- e[e$component == "interaction" & e$null_model == "AD" & e$estimand == "net", ]
@@ -47,6 +53,17 @@ test_that("the documented workflow runs end to end on polazzo_zooplankton", {
   cls <- classify_interactions(est)
   expect_true(any(cls$status[cls$order == 3L] == "ok"))
   expect_true(all(cls$class[cls$status == "ok"] %in% c("AD", "+S", "-S", "+A", "-A")))
+  # The methods and decisions describe this analysis
+  report <- report_interactions(est, classes = cls)
+  expect_match(report$methods[[1L]],
+               "3 stressors, insecticide (absent and chlorpyrifos, with absent as control)",
+               fixed = TRUE)
+  expect_match(report$methods[[1L]], "sampled at 4 times (day 7, 14, 30 and 50)", fixed = TRUE)
+  expect_match(paste(report$methods, collapse = " "),
+               "guidelines of Sch\u00e4fer & Piggott (2018)", fixed = TRUE)
+  expect_identical(report$decisions$value[report$decisions$argument == "null_models" &
+                                            report$decisions$step == "estimate_interactions()"],
+                   "AD, MU, DO")
   sm <- summary(est)
   expect_s3_class(sm, "summary.must_interactions")
   expect_output(print(sm), "Classes of the net deviations")

@@ -306,3 +306,129 @@ test_that("reused unit labels get a hint in the problem message", {
   msg <- des$checks$message[des$checks$severity == "problem"]
   expect_match(msg, "paste(treatment, tank)", fixed = TRUE)
 })
+
+test_that("rows shared by every `by` group complete the sets of each group", {
+  d <- shared_regimes()
+  des <- describe_design(d, c("a", "b"), control = c(a = "0", b = "0"), unit = "id",
+                         by = "regime", shared = c(regime = "both"))
+  expect_identical(des$spec$shared, c(regime = "both"))
+  expect_equal(nrow(des$sets), 2L)
+  expect_true(all(des$sets$net_identifiable))
+  expect_setequal(des$sets$regime, c("pulse", "press"))
+  expect_equal(des$sets$min_units, c(4L, 4L))
+  # Nothing is missing once the shared control is counted in both regimes
+  expect_equal(nrow(des$missing_cells), 0L)
+  for (id in des$sets$set_id) {
+    sc <- des$set_cells[[id]]
+    expect_identical(sc$context[sc$subset == "control"], "regime=both")
+    expect_identical(unique(sc$context[sc$subset != "control"]),
+                     des$sets$context[des$sets$set_id == id])
+  }
+  expect_equal(des$cell_use$n_sets[des$cell_use$context == "regime=both"], 2L)
+  expect_true(all(des$sets$shared))
+  expect_true("shared" %in% des$checks$check)
+  expect_false(any(des$checks$severity == "problem"))
+  expect_output(print(des), "By: regime (shared: regime = both)", fixed = TRUE)
+  # Without `shared`, the regimes lack a control and nothing is identifiable
+  plain <- describe_design(d, c("a", "b"), control = c(a = "0", b = "0"), unit = "id",
+                           by = "regime")
+  expect_false(any(plain$sets$net_identifiable))
+  expect_true("problem" %in% plain$checks$severity)
+})
+
+test_that("invalid `shared` give classed errors", {
+  d <- shared_regimes()
+  design <- function(...) {
+    describe_design(d, c("a", "b"), control = c(a = "0", b = "0"), unit = "id", ...)
+  }
+  expect_error(design(shared = c(regime = "both")), class = "must_error_input")
+  expect_error(design(by = "regime", shared = "both"), class = "must_error_input")
+  expect_error(design(by = "regime", shared = c(site = "both")), class = "must_error_input")
+  expect_error(design(by = "regime", shared = c(regime = "all")), class = "must_error_input")
+  expect_error(design(by = "regime", shared = list(regime = c("both", "pulse"))),
+               class = "must_error_input")
+  # A list with one level per column is accepted
+  expect_identical(design(by = "regime", shared = list(regime = "both"))$spec$shared,
+                   c(regime = "both"))
+})
+
+test_that("shared rows that a group duplicates, or that no group uses, are flagged", {
+  d <- shared_regimes()
+  own <- d[d$regime == "both", ]
+  own$regime <- "pulse"
+  own$id <- own$id + 100L
+  des <- describe_design(rbind(d, own), c("a", "b"), control = c(a = "0", b = "0"),
+                         unit = "id", by = "regime", shared = c(regime = "both"))
+  warn <- des$checks$message[des$checks$check == "shared" & des$checks$severity == "warning"]
+  expect_match(warn, "regime=pulse: control", fixed = TRUE)
+  # The pulse regime uses its own control
+  pulse <- des$sets$set_id[des$sets$regime == "pulse"]
+  expect_identical(des$set_cells[[pulse]]$context[[1L]], "regime=pulse")
+  # Shared rows of a species without other rows are used by no set
+  d$species <- "x"
+  extra <- d[d$regime == "both", ]
+  extra$species <- "y"
+  extra$id <- extra$id + 200L
+  des2 <- describe_design(rbind(d, extra), c("a", "b"), control = c(a = "0", b = "0"),
+                          unit = "id", by = c("species", "regime"),
+                          shared = c(regime = "both"))
+  expect_true(any(grepl("no set uses them", des2$checks$message, fixed = TRUE)))
+  expect_equal(sum(des2$sets$net_identifiable), 2L)
+})
+
+test_that("`baseline` can give the times before each stressor was applied", {
+  d <- repeated_counts()
+  design <- function(...) {
+    describe_design(d, c("a", "b"), control = c(a = "0", b = "0"), unit = "tank",
+                    time = "day", ...)
+  }
+  later <- design(baseline = list(b = 7))
+  expect_null(later$spec$baseline)
+  expect_identical(later$spec$baseline_by, list(a = character(), b = "7"))
+  expect_match(later$checks$message[later$checks$check == "baseline"], "'b' before '7'",
+               fixed = TRUE)
+  expect_output(print(later), "day (baseline: b before 7)", fixed = TRUE)
+  # A vector is a baseline for every stressor
+  common <- design(baseline = 7)
+  expect_identical(common$spec$baseline, "7")
+  expect_identical(common$spec$baseline_by, list(a = "7", b = "7"))
+  expect_identical(design(baseline = list(a = 7, b = 7))$spec$baseline, "7")
+  expect_error(design(baseline = list(7)), class = "must_error_input")
+  expect_error(design(baseline = list(c = 7)), class = "must_error_input")
+  expect_error(design(baseline = list(b = c(7, 14, 21))), class = "must_error_input")
+  expect_error(design(baseline = list(b = 99)), class = "must_error_input")
+})
+
+test_that("levels that differ only in letter case or spaces are flagged", {
+  d <- two_by_two_gaussian()
+  d$b <- ifelse(d$b == "1", "High", "none")
+  d$b[d$b == "High"][1:2] <- c("high", "High ")
+  des <- describe_design(d, c("a", "b"), control = c(a = "0", b = "none"), unit = "id")
+  msg <- des$checks$message[des$checks$check == "similar_levels"]
+  expect_length(msg, 1L)
+  expect_identical(des$checks$severity[des$checks$check == "similar_levels"], "warning")
+  expect_match(msg, "'High', 'High ', 'high'", fixed = TRUE)
+})
+
+test_that("levels observed in only some `by` groups get a hint", {
+  d <- two_by_two_gaussian()
+  other <- d
+  other$a[other$a == "1"] <- "one"
+  both <- rbind(cbind(d, pop = "x"), cbind(other, pop = "y"))
+  both$id <- seq_len(nrow(both))
+  des <- describe_design(both, c("a", "b"), control = c(a = "0", b = "0"), unit = "id",
+                         by = "pop")
+  msg <- des$checks$message[des$checks$check == "levels_by_group"]
+  expect_match(msg, "'1' (only 'pop=x')", fixed = TRUE)
+  expect_match(msg, "'one' (only 'pop=y')", fixed = TRUE)
+  # Shared rows count in every group: no hint for a level they hold
+  d$regime <- "pulse"
+  d$regime[d$a == "0" & d$b == "0"] <- "both"
+  press <- d[d$regime == "pulse", ]
+  press$regime <- "press"
+  shared <- rbind(d, press)
+  shared$id <- seq_len(nrow(shared))
+  des2 <- describe_design(shared, c("a", "b"), control = c(a = "0", b = "0"), unit = "id",
+                          by = "regime", shared = c(regime = "both"))
+  expect_false("levels_by_group" %in% des2$checks$check)
+})

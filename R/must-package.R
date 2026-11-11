@@ -13,14 +13,21 @@
 #'    linear mixed model to each response and chooses its error distribution
 #'    by convergence, residual checks and AIC, independently of the null
 #'    models.
-#' 3. **What "non-additive" means.** [estimate_interactions()] tests the
-#'    simple addition, multiplicative and dominance null models from the
-#'    predictions of that model, and distinguishes the net deviation of a
-#'    combination of three or more stressors from its pure highest-order
-#'    interaction. By default the tests are corrected for small samples;
-#'    `correction = "none"` gives the asymptotic procedure of Madge Pimentel
-#'    et al. (2025). [classify_interactions()] assigns the directional classes
-#'    of Piggott et al. (2015), and `summary()` and `plot()` give an overview.
+#' 3. **What "non-additive" means.** [estimate_interactions()] tests each
+#'    combination of stressors against one or more null models with the same
+#'    criteria, from the predictions of that model or of one fitted with
+#'    another package: simple addition (the default), multiplicative,
+#'    dominance, Bliss independence, stress addition and concentration
+#'    addition. It distinguishes the net deviation of a combination of three
+#'    or more stressors from its pure highest-order interaction. By default
+#'    the tests are corrected for small samples; `correction = "none"` gives
+#'    the asymptotic procedure of Madge Pimentel et al. (2025).
+#'    [classify_interactions()] assigns the directional classes of Piggott et
+#'    al. (2015), and `summary()` and `plot()` give an overview.
+#'
+#' [suggest_null_models()] applies the guidelines of Schäfer & Piggott (2018)
+#' to choose the null models, and [report_interactions()] writes the methods
+#' of the analysis and a table of every decision behind it.
 #'
 #' @references
 #' Madge Pimentel, I., Albini, D., Beermann, A. J., Leese, F., Macaulay, S.
@@ -36,6 +43,11 @@
 #' Piggott, J. J., Townsend, C. R., & Matthaei, C. D. (2015).
 #' Reconceptualizing synergism and antagonism among multiple stressors.
 #' *Ecology and Evolution*, 5(7), 1538–1547. \doi{10.1002/ece3.1465}
+#'
+#' Schäfer, R. B., & Piggott, J. J. (2018). Advancing understanding and
+#' prediction in multiple stressor research through a mechanistic basis for
+#' null models. *Global Change Biology*, 24(5), 1817–1826.
+#' \doi{10.1111/gcb.14073}
 #' @keywords internal
 "_PACKAGE"
 

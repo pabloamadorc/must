@@ -14,7 +14,8 @@ describe_design(
   groups = NULL,
   max_order = NULL,
   baseline = NULL,
-  background = "control"
+  background = "control",
+  shared = NULL
 )
 }
 \arguments{
@@ -58,7 +59,15 @@ the models fitted by \code{\link[=fit_responses]{fit_responses()}}, where they i
 differences among units (with \code{time_structure = "additive"} they are
 coded as untreated, the control combination), but
 \code{\link[=estimate_interactions]{estimate_interactions()}} does not estimate or test interactions at
-them, so they do not enter the multiple-testing adjustment either.
+them, so they do not enter the multiple-testing adjustment either. If
+the stressors were applied at different times, give a named list with
+the times before each one, e.g. \code{baseline = list(drying = c(-36, -1))}
+when drying started on day 0 and the other stressors were applied from
+the start: interactions that involve drying are then not estimated at
+those times, and those among the other stressors are (with
+\code{time_structure = "additive"}, drying is coded at its control there).
+Stressors left out of the list were applied before the first sampling.
+Each unit keeps the treatment it was assigned in the stressor columns.
 Requires \code{time}.}
 
 \item{background}{\code{"control"} (default) or \code{"all"}. With \code{"control"},
@@ -69,6 +78,18 @@ held at each of their observed non-control levels (for example, the
 interaction between salinity and warming in the presence of nutrients);
 their reference cell is then that background combination instead of the
 control.}
+
+\item{shared}{Optional named character vector that marks rows shared by
+every group of a \code{by} column, e.g. \code{c(regime = "both")}: the rows whose
+\code{regime} is \code{"both"} (usually the control, sometimes also the
+single-stressor treatments) belong to every other level of \code{regime}.
+Use it when one control serves several \code{by} groups (two exposure
+regimes, two orders of application, upstream and downstream ponds), so
+that it enters the analysis once instead of being copied into each
+group. Contrast sets are still formed within each \code{by} group, with the
+shared rows supplying the cells that the group lacks; sets of different
+groups that use them are correlated. Each name must be a \code{by} column and
+each value one of its levels.}
 }
 \value{
 An object of class \code{must_design}, a list with:
@@ -101,8 +122,8 @@ some of its combinations were given to a single group).
 \code{"whole_units"}, \code{"confounded"} or \code{"units"}, see Details),
 \code{groups_per_combination}, \code{units_per_group}, \code{cells_per_group} and
 \code{random} (whether \code{\link[=fit_responses]{fit_responses()}} adds a random intercept for it).
-\item \code{set_cells}: for each set, the cells it uses (used by
-\code{\link[=estimate_interactions]{estimate_interactions()}}).
+\item \code{set_cells}: for each set, the cells it uses, with the \code{context} in
+which each one was observed (used by \code{\link[=estimate_interactions]{estimate_interactions()}}).
 \item \code{cell_use}: number of identifiable sets that use each cell.
 \item \code{checks}: data frame with \code{check}, \code{severity} (\code{"problem"},
 \code{"warning"} or \code{"info"}) and \code{message}.
@@ -138,6 +159,17 @@ Cells shared by several sets (typically the control in designs with several
 doses, or the single-stressor cells of a factorial with several levels)
 make the estimates of those sets correlated.
 
+\strong{Rows shared by several \code{by} groups.} When a control (or another cell)
+is common to several groups, copying it into each group would count its
+units several times. With \code{shared}, those rows form their own group
+(\code{context} such as \code{"regime=both"}), and each of the other groups uses its
+cells when it lacks them: a set of \code{"regime=pulse"} takes its control from
+\code{"regime=both"}. The shared rows supply cells, not sets: sets are formed
+from the combinations observed within each group. A design with the
+order of application as a \code{by} column (nutrients then salinity, salinity
+then nutrients) and the control and single stressors shared estimates the
+interaction for each order.
+
 \strong{Groups of units.} A stressor that takes a single level within every
 group of a \code{groups} column was applied to whole groups (a whole-plot
 factor). Each column gets one of four structures:
@@ -168,7 +200,8 @@ the other stressors"); an interaction can differ in the presence of
 another stressor, which \code{background = "all"} estimates.
 \item Each experimental unit receives a single treatment combination for the
 whole experiment. Treatments that change within a unit (sequential
-exposures) are reported as a problem.
+exposures) are reported as a problem, except stressors that start later
+than others, declared in \code{baseline} by stressor.
 \item Units and groups not given in \code{unit} and \code{groups} are assumed
 independent: the design cannot reveal a shared incubator or water supply
 that is not recorded in the data.

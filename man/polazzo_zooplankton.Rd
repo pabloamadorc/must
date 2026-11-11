@@ -5,24 +5,43 @@
 \alias{polazzo_zooplankton}
 \title{Zooplankton in a three-stressor mesocosm experiment}
 \format{
-A data frame with 120 rows (24 mesocosms x 5 sampling days) and 8
+A data frame with 120 rows (24 mesocosms x 5 sampling days) and 28
 columns:
 \describe{
-\item{mesocosm}{Mesocosm identifier (text, \code{"M01"} to \code{"M24"}), the
+\item{mesocosm}{Mesocosm code (text, \code{"M01"} to \code{"M24"}), the
 experimental unit.}
 \item{day}{Day relative to the pesticide application (integer: -5, 7,
-14, 30, 50). Nutrient additions started four weeks before the
-application, so day -5 is before the pesticides but not before the
+14, 30, 50). Day -5 is before the pesticides but not before the
 nutrients.}
-\item{insecticide}{\code{"chlorpyrifos"} (1 ug/L) or \code{"absent"}.}
-\item{herbicide}{\code{"diuron"} (18 ug/L) or \code{"absent"}.}
-\item{nutrients}{\code{"added"} (750 ug/L N and 75 ug/L P, twice a week) or
-\code{"ambient"}.}
-\item{total_density}{Sum of the densities of the 22 zooplankton taxa of
-the source file.}
-\item{daphnia}{Density of \emph{Daphnia} sp.}
-\item{cyclopoida}{Density of cyclopoid copepods.}
+\item{insecticide}{\code{"chlorpyrifos"} or \code{"absent"}.}
+\item{herbicide}{\code{"diuron"} or \code{"absent"}.}
+\item{nutrients}{\code{"added"} or \code{"ambient"}.}
+\item{total_density}{Sum of the 22 taxon columns.}
+\item{daphnia}{Daphnia sp}
+\item{simocephalus}{Simocephalus sp}
+\item{cyclopoida}{Ciclopoida}
+\item{alonella}{Alonella}
+\item{alona}{Alona}
+\item{ceriodafnia}{Ceriodafnia}
+\item{ostracoda}{Ostracoda}
+\item{nauplii}{Nauplii}
+\item{keratella_quadrata}{Keratella quadrata}
+\item{lecanidae}{Lecanidae}
+\item{cephalodella}{Cephalodella}
+\item{lepadella}{Lepadella}
+\item{tricocerca}{Tricocerca}
+\item{mytilinia}{Mytilinia}
+\item{polyarthra}{Polyarthra}
+\item{colurella}{Colurella}
+\item{tricotria}{Tricotria}
+\item{ascomorfa}{Ascomorfa}
+\item{squatinella}{Squatinella}
+\item{testudinella}{Testudinella}
+\item{notholca}{Notholca}
+\item{proales}{Proales}
 }
+The taxon columns hold the density of each taxon of the source file,
+whose name for the taxon is given above and in the attribute \code{"taxa"}.
 Densities are as reported in the source file, which does not state
 their unit. Zeros are taxa not found in the sample; there are no
 missing values.
@@ -31,28 +50,47 @@ missing values.
 Polazzo, F., & Rico, A. (2021). Data from: Effects of multiple
 stressors on the dimensionality of ecological stability. Dryad,
 \doi{10.5061/dryad.qfttdz0gt}. Licence CC0 1.0. Sheet "Zooplankton
-density" of \code{Polazzo_and_Rico_2021_EcologyLetters_Full_data.xlsx};
-the treatment codes, which differ on day 50, were harmonised (script in
-\verb{data-raw/} of the source repository).
+density" of \code{Polazzo_and_Rico_2021_EcologyLetters_Full_data.xlsx}; the
+treatment codes, which differ on day 50, were harmonised (script
+\code{data-raw/polazzo_rico_2021.R} of the source repository).
 }
 \usage{
 polazzo_zooplankton
 }
 \description{
 Zooplankton densities from an outdoor mesocosm experiment with a full
-factorial of an insecticide (chlorpyrifos), a herbicide (diuron) and
-nutrient enrichment, three mesocosms per treatment combination, sampled
-once before the pesticide application and four times after it (Polazzo &
-Rico 2021).
+factorial of an insecticide, a herbicide and nutrient enrichment (Polazzo &
+Rico 2021), sampled once before the pesticide application and four times
+after it.
 }
+\section{Experimental design}{
+
+Twenty-four outdoor mesocosms, three per combination of a full factorial of
+chlorpyrifos (insecticide, 1 µg/L, or absent), diuron (herbicide, 18 µg/L,
+or absent) and nutrients (750 µg/L N and 75 µg/L P added twice a week, or
+ambient). The nutrient additions started four weeks before the pesticide
+application (day 0). The community tables \link{polazzo_zooplankton},
+\link{polazzo_phytoplankton} and \link{polazzo_macroinvertebrates} share the
+mesocosm codes and the design columns, so they can be joined by \code{mesocosm}
+and, where the sampling days coincide, \code{day}.
+}
+
 \examples{
-str(polazzo_zooplankton)
-table(polazzo_zooplankton$insecticide, polazzo_zooplankton$herbicide,
-      polazzo_zooplankton$nutrients) / 5
+str(polazzo_zooplankton[1:8])
+# Three mesocosms per treatment combination
+with(polazzo_zooplankton[polazzo_zooplankton$day == 7, ],
+     table(insecticide, herbicide, nutrients))
+head(attr(polazzo_zooplankton, "taxa"))
 }
 \references{
 Polazzo, F., & Rico, A. (2021). Effects of multiple stressors on the
 dimensionality of ecological stability. \emph{Ecology Letters}, 24(8),
 1594–1606. \doi{10.1111/ele.13770}
 }
+\seealso{
+Other data of Polazzo and Rico (2021): 
+\code{\link{polazzo_macroinvertebrates}},
+\code{\link{polazzo_phytoplankton}}
+}
+\concept{data of Polazzo and Rico (2021)}
 \keyword{datasets}

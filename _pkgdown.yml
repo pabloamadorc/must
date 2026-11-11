@@ -1,0 +1,52 @@
+url: https://pabloamadorc.github.io/must/
+
+template:
+  bootstrap: 5
+  bslib:
+    primary: "#B22222"
+
+navbar:
+  structure:
+    left: [intro, reference, articles, news]
+    right: [search, github]
+
+articles:
+- title: Worked examples
+  navbar: ~
+  contents:
+  - mesocosms
+  - articles/case-studies
+
+reference:
+- title: Workflow
+  desc: >
+    The steps of an analysis, in order: describe the design, fit the
+    responses, choose the null models, estimate and classify the
+    interactions, compare the null models and report the methods.
+  contents:
+  - describe_design
+  - fit_responses
+  - suggest_null_models
+  - estimate_interactions
+  - must_interactions-methods
+  - classify_interactions
+  - compare_null_models
+  - report_interactions
+- title: "Data: Polazzo & Rico (2021)"
+  desc: >
+    Outdoor mesocosms with an insecticide, a herbicide and nutrients
+    (`vignette("mesocosms")`).
+  contents:
+  - has_concept("data of Polazzo and Rico (2021)")
+- title: "Data: Hermann et al. (2024)"
+  desc: >
+    Outdoor mesocosms with an insecticide and three temperature regimes
+    (`vignette("mesocosms")`).
+  contents:
+  - has_concept("data of Hermann et al. (2024)")
+- title: "Data: case studies"
+  desc: >
+    Six published experiments with other designs, reanalysed in the case
+    studies.
+  contents:
+  - has_concept("case-study data")

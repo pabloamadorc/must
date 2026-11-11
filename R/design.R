@@ -40,7 +40,15 @@
 #'   differences among units (with `time_structure = "additive"` they are
 #'   coded as untreated, the control combination), but
 #'   [estimate_interactions()] does not estimate or test interactions at
-#'   them, so they do not enter the multiple-testing adjustment either.
+#'   them, so they do not enter the multiple-testing adjustment either. If
+#'   the stressors were applied at different times, give a named list with
+#'   the times before each one, e.g. `baseline = list(drying = c(-36, -1))`
+#'   when drying started on day 0 and the other stressors were applied from
+#'   the start: interactions that involve drying are then not estimated at
+#'   those times, and those among the other stressors are (with
+#'   `time_structure = "additive"`, drying is coded at its control there).
+#'   Stressors left out of the list were applied before the first sampling.
+#'   Each unit keeps the treatment it was assigned in the stressor columns.
 #'   Requires `time`.
 #' @param background `"control"` (default) or `"all"`. With `"control"`,
 #'   interactions are estimated with the stressors outside each contrast set
@@ -50,6 +58,17 @@
 #'   interaction between salinity and warming in the presence of nutrients);
 #'   their reference cell is then that background combination instead of the
 #'   control.
+#' @param shared Optional named character vector that marks rows shared by
+#'   every group of a `by` column, e.g. `c(regime = "both")`: the rows whose
+#'   `regime` is `"both"` (usually the control, sometimes also the
+#'   single-stressor treatments) belong to every other level of `regime`.
+#'   Use it when one control serves several `by` groups (two exposure
+#'   regimes, two orders of application, upstream and downstream ponds), so
+#'   that it enters the analysis once instead of being copied into each
+#'   group. Contrast sets are still formed within each `by` group, with the
+#'   shared rows supplying the cells that the group lacks; sets of different
+#'   groups that use them are correlated. Each name must be a `by` column and
+#'   each value one of its levels.
 #'
 #' @return An object of class `must_design`, a list with:
 #'   * `spec`: the arguments used, with the observed levels of each stressor
@@ -80,8 +99,8 @@
 #'     `"whole_units"`, `"confounded"` or `"units"`, see Details),
 #'     `groups_per_combination`, `units_per_group`, `cells_per_group` and
 #'     `random` (whether [fit_responses()] adds a random intercept for it).
-#'   * `set_cells`: for each set, the cells it uses (used by
-#'     [estimate_interactions()]).
+#'   * `set_cells`: for each set, the cells it uses, with the `context` in
+#'     which each one was observed (used by [estimate_interactions()]).
 #'   * `cell_use`: number of identifiable sets that use each cell.
 #'   * `checks`: data frame with `check`, `severity` (`"problem"`,
 #'     `"warning"` or `"info"`) and `message`.
@@ -105,6 +124,17 @@
 #' Cells shared by several sets (typically the control in designs with several
 #' doses, or the single-stressor cells of a factorial with several levels)
 #' make the estimates of those sets correlated.
+#'
+#' **Rows shared by several `by` groups.** When a control (or another cell)
+#' is common to several groups, copying it into each group would count its
+#' units several times. With `shared`, those rows form their own group
+#' (`context` such as `"regime=both"`), and each of the other groups uses its
+#' cells when it lacks them: a set of `"regime=pulse"` takes its control from
+#' `"regime=both"`. The shared rows supply cells, not sets: sets are formed
+#' from the combinations observed within each group. A design with the
+#' order of application as a `by` column (nutrients then salinity, salinity
+#' then nutrients) and the control and single stressors shared estimates the
+#' interaction for each order.
 #'
 #' **Groups of units.** A stressor that takes a single level within every
 #' group of a `groups` column was applied to whole groups (a whole-plot
@@ -132,7 +162,8 @@
 #'   another stressor, which `background = "all"` estimates.
 #' * Each experimental unit receives a single treatment combination for the
 #'   whole experiment. Treatments that change within a unit (sequential
-#'   exposures) are reported as a problem.
+#'   exposures) are reported as a problem, except stressors that start later
+#'   than others, declared in `baseline` by stressor.
 #' * Units and groups not given in `unit` and `groups` are assumed
 #'   independent: the design cannot reveal a shared incubator or water supply
 #'   that is not recorded in the data.
@@ -193,19 +224,22 @@
 #' @export
 describe_design <- function(data, stressors, control, unit = NULL, time = NULL,
                             by = NULL, groups = NULL, max_order = NULL, baseline = NULL,
-                            background = "control") {
+                            background = "control", shared = NULL) {
   check_data_frame(data, allow_empty = FALSE)
   data <- as_plain_data_frame(data)
   spec <- validate_design_spec(data, stressors, control, unit, time, by, groups,
-                               max_order, baseline, background)
+                               max_order, baseline, background, shared)
   keys <- design_keys(data, spec)
   cells <- summarise_cells(data, spec, keys)
-  missing_cells <- find_missing_cells(spec, cells)
-  sets <- find_contrast_sets(spec, cells)
+  pools <- context_pools(cells, spec)
+  missing_cells <- find_missing_cells(spec, cells, pools)
+  sets <- find_contrast_sets(spec, cells, pools)
   group_info <- analyse_groups(data, spec, keys)
   sets$sets$confounded <- flag_confounded(sets$sets, sets$set_cells, cells, group_info)
   checks <- design_checks(spec, keys, cells, missing_cells, sets, group_info,
-                          nested = nested_group_labels(data, spec, keys))
+                          nested = nested_group_labels(data, spec, keys),
+                          labels = label_checks(data, spec, cells, pools),
+                          pools = pools)
   structure(
     list(
       spec = spec,
@@ -230,7 +264,8 @@ reserved_names <- function() {
 
 validate_design_spec <- function(data, stressors, control, unit, time, by,
                                  groups, max_order, baseline = NULL,
-                                 background = "control", call = sys.call(-1)) {
+                                 background = "control", shared = NULL,
+                                 call = sys.call(-1)) {
   if (!is.character(stressors) || length(stressors) < 2L || anyNA(stressors) ||
       anyDuplicated(stressors) > 0L) {
     abort_input(
@@ -369,7 +404,8 @@ validate_design_spec <- function(data, stressors, control, unit, time, by,
     max_order <- as.integer(max_order)
   }
   check_choice(background, c("control", "all"), arg = "background", call = call)
-  baseline <- check_baseline(baseline, data, time, call = call)
+  baseline <- check_baseline(baseline, data, time, stressors, call = call)
+  shared <- check_shared(shared, data, by, call = call)
   list(
     stressors = stressors,
     control = control_chr,
@@ -379,40 +415,163 @@ validate_design_spec <- function(data, stressors, control, unit, time, by,
     groups = groups,
     max_order = as.integer(max_order),
     levels = levels_list,
-    baseline = baseline,
-    background = background
+    # Times before every stressor was applied, and times before each one.
+    baseline = baseline$common,
+    baseline_by = baseline$by_stressor,
+    background = background,
+    shared = shared
   )
 }
 
-check_baseline <- function(baseline, data, time, call = sys.call(-1)) {
+# `baseline` is a vector of times before all the stressors were applied, or
+# a named list with the times before each stressor was applied. Returns the
+# times common to every stressor (`common`, NULL if none) and the times of
+# each stressor (`by_stressor`, NULL without baseline).
+check_baseline <- function(baseline, data, time, stressors, call = sys.call(-1)) {
   if (is.null(baseline)) {
-    return(NULL)
+    return(list(common = NULL, by_stressor = NULL))
   }
   if (is.null(time)) {
     abort_input("`baseline` needs `time`: give the column with the sampling times.",
                 call = call)
   }
-  if (!(is.character(baseline) || is.numeric(baseline) || is.factor(baseline)) ||
-      length(baseline) == 0L || anyNA(baseline)) {
-    abort_input("`baseline` must be NULL or a vector of sampling times.", call = call)
-  }
-  baseline <- unique(as.character(baseline))
   observed <- unique(as.character(data[[time]]))
-  absent <- setdiff(baseline, observed)
-  if (length(absent) > 0L) {
+  times_of <- function(x, what) {
+    if (!(is.character(x) || is.numeric(x) || is.factor(x)) || length(x) == 0L || anyNA(x)) {
+      abort_input(sprintf("%s must be a vector of sampling times.", what), call = call)
+    }
+    x <- unique(as.character(x))
+    absent <- setdiff(x, observed)
+    if (length(absent) > 0L) {
+      abort_input(
+        sprintf(
+          "%s has time(s) that are not in column '%s': %s. Observed times: %s.",
+          what, time, format_items(quote_items(absent), max = 5L),
+          format_items(quote_items(observed), max = 10L)
+        ),
+        call = call
+      )
+    }
+    x
+  }
+  if (is.list(baseline)) {
+    named <- names(baseline)
+    if (is.null(named) || any(!nzchar(named)) || anyDuplicated(named) > 0L) {
+      abort_input(
+        paste(
+          "A list in `baseline` must be named by stressor, with the times before",
+          "each one was applied, e.g. baseline = list(drying = c(-36, -1))."
+        ),
+        call = call
+      )
+    }
+    unknown <- setdiff(named, stressors)
+    if (length(unknown) > 0L) {
+      abort_input(
+        sprintf(
+          "The names of `baseline` must be stressors (%s); %s %s not.",
+          format_items(quote_items(stressors), max = Inf),
+          format_items(quote_items(unknown), max = Inf),
+          if (length(unknown) == 1L) "is" else "are"
+        ),
+        call = call
+      )
+    }
+    by_stressor <- stats::setNames(rep(list(character()), length(stressors)), stressors)
+    for (s in named) {
+      by_stressor[[s]] <- times_of(baseline[[s]], sprintf("`baseline$%s`", s))
+      if (all(observed %in% by_stressor[[s]])) {
+        abort_input(
+          sprintf("`baseline$%s` includes every sampling time: '%s' was never applied.", s, s),
+          call = call
+        )
+      }
+    }
+    common <- Reduce(intersect, by_stressor)
+  } else {
+    common <- times_of(baseline, "`baseline`")
+    if (all(observed %in% common)) {
+      abort_input("`baseline` cannot include every sampling time.", call = call)
+    }
+    by_stressor <- stats::setNames(rep(list(common), length(stressors)), stressors)
+  }
+  list(common = if (length(common) > 0L) common else NULL, by_stressor = by_stressor)
+}
+
+# Times before each stressor was applied (NULL without baseline), also for
+# designs made before `baseline` could be given by stressor.
+baseline_times <- function(spec) {
+  if (!is.null(spec$baseline_by)) {
+    return(spec$baseline_by)
+  }
+  if (is.null(spec$baseline)) {
+    return(NULL)
+  }
+  stats::setNames(rep(list(as.character(spec$baseline)), length(spec$stressors)), spec$stressors)
+}
+
+# `shared`: named character vector (or list) with, for some `by` columns, the
+# level that marks rows shared by every other level of that column.
+check_shared <- function(shared, data, by, call = sys.call(-1)) {
+  if (is.null(shared)) {
+    return(NULL)
+  }
+  if (is.null(by)) {
     abort_input(
-      sprintf(
-        "`baseline` has time(s) that are not in column '%s': %s. Observed times: %s.",
-        time, format_items(quote_items(absent), max = 5L),
-        format_items(quote_items(observed), max = 10L)
+      paste(
+        "`shared` needs `by`: it marks the rows of a `by` column that belong to",
+        "every group of that column, e.g. by = \"regime\", shared = c(regime = \"both\")."
       ),
       call = call
     )
   }
-  if (all(observed %in% baseline)) {
-    abort_input("`baseline` cannot include every sampling time.", call = call)
+  if (is.list(shared)) {
+    if (any(lengths(shared) != 1L)) {
+      abort_input("`shared` must give a single level for each `by` column.", call = call)
+    }
+    shared <- unlist(shared)
   }
-  baseline
+  if (!is.atomic(shared) || length(shared) == 0L || is.null(names(shared)) ||
+      any(!nzchar(names(shared))) || anyNA(shared) || anyDuplicated(names(shared)) > 0L) {
+    abort_input(
+      paste(
+        "`shared` must be a named character vector, e.g. c(regime = \"both\"): the",
+        "names are `by` columns and the values the level that marks shared rows."
+      ),
+      call = call
+    )
+  }
+  unknown <- setdiff(names(shared), by)
+  if (length(unknown) > 0L) {
+    abort_input(
+      sprintf(
+        "The names of `shared` must be `by` columns (%s); %s %s not.",
+        format_items(quote_items(by), max = Inf), format_items(quote_items(unknown), max = Inf),
+        if (length(unknown) == 1L) "is" else "are"
+      ),
+      call = call
+    )
+  }
+  out <- stats::setNames(as.character(shared), names(shared))
+  for (b in names(out)) {
+    observed <- unique(as.character(data[[b]]))
+    if (!out[[b]] %in% observed) {
+      abort_input(
+        sprintf(
+          "The shared level '%s' of '%s' is not in the data. Observed levels: %s.",
+          out[[b]], b, format_items(quote_items(sort(observed)), max = 20L)
+        ),
+        call = call
+      )
+    }
+    if (length(observed) < 2L) {
+      abort_input(
+        sprintf("'%s' has no group other than the shared one ('%s').", b, out[[b]]),
+        call = call
+      )
+    }
+  }
+  out
 }
 
 # Per-row labels and indicators used by every other step.
@@ -477,26 +636,82 @@ sort_cells <- function(cells, spec) {
   cells
 }
 
-find_missing_cells <- function(spec, cells) {
-  n_full <- prod(lengths(spec$levels))
+# The `by` groups whose cells the sets of each group can use: the group
+# itself and the groups of rows marked as `shared` that match it in the other
+# `by` columns. `pools` is named by the groups that form sets (not shared);
+# `shared` lists the groups of shared rows.
+context_pools <- function(cells, spec) {
+  contexts <- unique(cells$context)
+  if (length(spec$shared) == 0L) {
+    return(list(pools = stats::setNames(as.list(contexts), contexts), shared = character()))
+  }
+  values <- cells[!duplicated(cells$context), c("context", spec$by), drop = FALSE]
+  is_shared <- Reduce(`|`, lapply(names(spec$shared), function(b) {
+    values[[b]] == spec$shared[[b]]
+  }))
+  pools <- list()
+  for (i in which(!is_shared)) {
+    covers <- vapply(which(is_shared), function(j) {
+      all(vapply(spec$by, function(b) {
+        v <- values[[b]][[j]]
+        v == values[[b]][[i]] || (b %in% names(spec$shared) && v == spec$shared[[b]])
+      }, logical(1)))
+    }, logical(1))
+    pools[[values$context[[i]]]] <- c(values$context[[i]], values$context[is_shared][covers])
+  }
+  list(pools = pools, shared = values$context[is_shared])
+}
+
+# Groups in the pool of `ctx` (by position: without `by` the context label is
+# "", which [[""]] does not match).
+pool_of <- function(pools, ctx) {
+  i <- match(ctx, names(pools$pools))
+  if (is.na(i)) ctx else pools$pools[[i]]
+}
+
+# Rows of `cells` with the given cell labels in the pool of `ctx`: the group's
+# own cell if it has one, otherwise the first shared group that has it
+# (NA if none).
+pool_match <- function(labels, ctx, cells, pools) {
+  pos <- rep(NA_integer_, length(labels))
+  for (p in pool_of(pools, ctx)) {
+    hit <- which(cells$context == p)
+    m <- match(labels, cells$cell[hit])
+    fill <- is.na(pos) & !is.na(m)
+    pos[fill] <- hit[m[fill]]
+  }
+  pos
+}
+
+# Combinations of the levels observed in each `by` group (with the rows shared
+# with it) that the group lacks. Levels that a group never uses are not counted
+# as missing there; label_checks() points them out.
+find_missing_cells <- function(spec, cells, pools) {
   template <- cells[0, c("context", spec$by, spec$stressors, "cell", "n_stressed"), drop = FALSE]
-  if (n_full > 1e5) {
+  contexts <- names(pools$pools)
+  group_levels <- lapply(contexts, function(ctx) {
+    in_pool <- cells$context %in% pool_of(pools, ctx)
+    lapply(stats::setNames(spec$stressors, spec$stressors), function(s) {
+      spec$levels[[s]][spec$levels[[s]] %in% cells[[s]][in_pool]]
+    })
+  })
+  sizes <- vapply(group_levels, function(lv) prod(lengths(lv)), numeric(1))
+  n_full <- sum(sizes)
+  if (max(sizes) > 1e5) {
     return(list(table = template, n_full = n_full, enumerated = FALSE))
   }
-  grid <- expand.grid(spec$levels, stringsAsFactors = FALSE, KEEP.OUT.ATTRS = FALSE)
-  names(grid) <- spec$stressors
-  grid_label <- make_cell_label(grid, spec$stressors)
-  grid_stressed <- as.integer(rowSums(do.call(
-    cbind, lapply(spec$stressors, function(s) grid[[s]] != spec$control[[s]])
-  )))
-  contexts <- unique(cells$context)
-  out <- lapply(contexts, function(ctx) {
-    in_ctx <- cells$context == ctx
-    absent <- !grid_label %in% cells$cell[in_ctx]
+  out <- lapply(seq_along(contexts), function(k) {
+    ctx <- contexts[[k]]
+    grid <- expand.grid(group_levels[[k]], stringsAsFactors = FALSE, KEEP.OUT.ATTRS = FALSE)
+    names(grid) <- spec$stressors
+    grid_label <- make_cell_label(grid, spec$stressors)
+    # Shared rows are not a group of their own: what is missing is what the
+    # group lacks once the shared cells are counted in it.
+    absent <- is.na(pool_match(grid_label, ctx, cells, pools))
     if (!any(absent)) {
       return(NULL)
     }
-    first <- which(in_ctx)[[1L]]
+    first <- which(cells$context == ctx)[[1L]]
     rows <- data.frame(context = rep(ctx, sum(absent)), stringsAsFactors = FALSE)
     for (b in spec$by) {
       rows[[b]] <- rep(cells[[b]][[first]], sum(absent))
@@ -505,7 +720,9 @@ find_missing_cells <- function(spec, cells) {
       rows[[s]] <- grid[[s]][absent]
     }
     rows$cell <- grid_label[absent]
-    rows$n_stressed <- grid_stressed[absent]
+    rows$n_stressed <- as.integer(rowSums(do.call(
+      cbind, lapply(spec$stressors, function(s) grid[[s]][absent] != spec$control[[s]])
+    )))
     rows
   })
   table <- bind_rows_base(out, template)
@@ -518,10 +735,12 @@ find_missing_cells <- function(spec, cells) {
 # background = "all", also one set per subset of two or more of those
 # stressors, with the others held at their levels in that cell (the
 # background), which then define the reference cell.
-find_contrast_sets <- function(spec, cells) {
+find_contrast_sets <- function(spec, cells, pools) {
   stressors <- spec$stressors
   candidates <- list()
-  for (r in which(cells$n_stressed >= 2L)) {
+  # Sets come from the combinations observed in each group; shared rows only
+  # supply cells.
+  for (r in which(cells$n_stressed >= 2L & !cells$context %in% pools$shared)) {
     level_row <- vapply(stressors, function(s) cells[[s]][[r]], character(1))
     away <- stressors[level_row != spec$control[stressors]]
     choices <- if (identical(spec$background, "all")) {
@@ -548,7 +767,6 @@ find_contrast_sets <- function(spec, cells) {
     level_row <- cand$level_row
     bg <- setdiff(cand$away, in_set)
     ctx <- cells$context[[r]]
-    in_ctx <- cells$context == ctx
     m <- length(in_set)
     subsets <- all_subsets(m)
     reference <- spec$control
@@ -558,11 +776,11 @@ find_contrast_sets <- function(spec, cells) {
       lv[in_set[t]] <- level_row[in_set[t]]
       make_cell_label(as.list(lv), stressors)
     }, character(1))
-    position <- match(labels, cells$cell[in_ctx])
+    position <- pool_match(labels, ctx, cells, pools)
     present <- !is.na(position)
     size <- lengths(subsets)
     for_net <- size == 0L | size == 1L | size == m
-    units <- cells$n_units[in_ctx][position]
+    units <- cells$n_units[position]
     set_id <- sprintf("S%0*d", width, j)
     set_cells[[set_id]] <- data.frame(
       subset = vapply(subsets, function(t) {
@@ -578,6 +796,7 @@ find_contrast_sets <- function(spec, cells) {
       cell = labels,
       present = present,
       for_net = for_net,
+      context = ifelse(present, cells$context[position], ctx),
       stringsAsFactors = FALSE
     )
     rows[[j]] <- data.frame(
@@ -612,13 +831,14 @@ find_contrast_sets <- function(spec, cells) {
   sets <- sets[, c("set_id", "context", spec$by, setdiff(names(template), c("set_id", "context", spec$by))),
                drop = FALSE]
   cell_use <- count_cell_use(sets, set_cells, cells)
+  use_key <- paste_key(cell_use$context, cell_use$cell)
   sets$shared <- vapply(seq_len(nrow(sets)), function(i) {
     if (!sets$net_identifiable[[i]]) {
       return(FALSE)
     }
     used <- set_cells[[sets$set_id[[i]]]]
-    used <- used$cell[used$for_net]
-    n <- cell_use$n_sets[cell_use$context == sets$context[[i]] & cell_use$cell %in% used]
+    used <- used[used$for_net, , drop = FALSE]
+    n <- cell_use$n_sets[use_key %in% paste_key(used$context, used$cell)]
     any(n > 1L)
   }, logical(1))
   list(sets = sets, set_cells = set_cells, cell_use = cell_use)
@@ -627,11 +847,12 @@ find_contrast_sets <- function(spec, cells) {
 count_cell_use <- function(sets, set_cells, cells) {
   use <- cells[, c("context", "cell"), drop = FALSE]
   use$n_sets <- 0L
+  use_key <- paste_key(use$context, use$cell)
   ok <- sets$set_id[sets$net_identifiable]
   for (id in ok) {
     sc <- set_cells[[id]]
-    ctx <- sets$context[sets$set_id == id]
-    hit <- use$context == ctx & use$cell %in% sc$cell[sc$for_net]
+    sc <- sc[sc$for_net, , drop = FALSE]
+    hit <- use_key %in% paste_key(sc$context, sc$cell)
     use$n_sets[hit] <- use$n_sets[hit] + 1L
   }
   use
@@ -723,7 +944,8 @@ confounded_by_group <- function(sets, set_cells, cells, gi) {
       return(FALSE)
     }
     sc <- set_cells[[sets$set_id[[i]]]]
-    used <- cells[cells$context == sets$context[[i]] & cells$cell %in% sc$cell[sc$present], ,
+    sc <- sc[sc$present, , drop = FALSE]
+    used <- cells[paste_key(cells$context, cells$cell) %in% paste_key(sc$context, sc$cell), ,
                   drop = FALSE]
     combo <- paste_key(used$context, make_cell_label(used, gi$between))
     any(gi$per_combo[match(combo, names(gi$per_combo))] == 1L, na.rm = TRUE)
@@ -837,8 +1059,89 @@ nested_group_labels <- function(data, spec, keys) {
   out
 }
 
+# Labels that may hide an error in the coding of the treatments: levels that
+# differ only in letter case or spaces (a warning), and, with `by`, non-control
+# levels of a stressor observed in only some `by` groups, which may be one
+# treatment under two labels ("MP" in one population, "PET" in another).
+label_checks <- function(data, spec, cells, pools) {
+  out <- list()
+  for (col in c(spec$stressors, spec$by, spec$groups)) {
+    values <- unique(as.character(data[[col]]))
+    invalid <- !validUTF8(values)
+    if (any(invalid)) {
+      out[[length(out) + 1L]] <- data.frame(
+        check = "encoding", severity = "warning",
+        message = sprintf(
+          paste(
+            "Levels of '%s' are not valid UTF-8 text (%s): the file was probably",
+            "read with the wrong encoding. Read it again with its encoding (for",
+            "example fileEncoding = \"latin1\" in read.csv()) so that labels print",
+            "correctly."
+          ),
+          col, format_items(quote_items(iconv(values[invalid], "latin1", "UTF-8")), max = 3L)
+        ),
+        stringsAsFactors = FALSE
+      )
+      # Compared as Latin-1, which any byte sequence is.
+      values[invalid] <- iconv(values[invalid], "latin1", "UTF-8")
+    }
+    folded <- tolower(gsub("[[:space:]]+", " ", trimws(values)))
+    dup <- unique(folded[duplicated(folded)])
+    if (length(dup) == 0L) {
+      next
+    }
+    pieces <- vapply(dup, function(f) {
+      format_items(quote_items(sort(values[folded == f], method = "radix")), max = Inf)
+    }, character(1))
+    out[[length(out) + 1L]] <- data.frame(
+      check = "similar_levels", severity = "warning",
+      message = sprintf(
+        paste(
+          "Levels of '%s' that differ only in letter case or spaces: %s. They are",
+          "treated as different levels; if they are the same, give them the same label."
+        ),
+        col, paste(unname(pieces), collapse = "; ")
+      ),
+      stringsAsFactors = FALSE
+    )
+  }
+  groups <- names(pools$pools)
+  if (length(groups) < 2L) {
+    return(out)
+  }
+  for (s in spec$stressors) {
+    lev <- setdiff(spec$levels[[s]], spec$control[[s]])
+    where <- lapply(lev, function(l) {
+      groups[vapply(groups, function(ctx) {
+        any(cells[[s]][cells$context %in% pool_of(pools, ctx)] == l)
+      }, logical(1))]
+    })
+    partial <- which(lengths(where) > 0L & lengths(where) < length(groups))
+    if (length(partial) == 0L) {
+      next
+    }
+    pieces <- vapply(partial, function(i) {
+      sprintf("'%s' (only %s)", lev[[i]], format_items(quote_items(where[[i]]), max = 2L))
+    }, character(1))
+    out[[length(out) + 1L]] <- data.frame(
+      check = "levels_by_group", severity = "info",
+      message = sprintf(
+        paste(
+          "Levels of '%s' observed in only some `by` groups: %s. If one of them is",
+          "the same treatment as another level under a different label, give both",
+          "the same label; otherwise the combinations they lack are missing."
+        ),
+        s, format_items(pieces, max = 3L)
+      ),
+      stringsAsFactors = FALSE
+    )
+  }
+  out
+}
+
 design_checks <- function(spec, keys, cells, missing_cells, sets, group_info = list(),
-                          nested = list()) {
+                          nested = list(), labels = list(),
+                          pools = context_pools(cells, spec)) {
   out <- list()
   add <- function(check, severity, message) {
     out[[length(out) + 1L]] <<- data.frame(
@@ -945,13 +1248,29 @@ design_checks <- function(spec, keys, cells, missing_cells, sets, group_info = l
   # Pre-treatment samplings
   if (!is.null(spec$time)) {
     times <- unique(keys$time_value)
-    if (!is.null(spec$baseline)) {
+    per <- spec$baseline_by
+    uniform <- !is.null(per) && all(vapply(per, function(t) setequal(t, per[[1L]]), logical(1)))
+    if (uniform) {
       add("baseline", "info", sprintf(
         paste(
           "Baseline (pre-treatment) time(s): %s. They are kept in the models,",
           "but interactions are not estimated or tested at them."
         ),
         format_items(quote_items(spec$baseline), max = 5L)
+      ))
+    } else if (!is.null(per)) {
+      with_times <- names(per)[lengths(per) > 0L]
+      pieces <- vapply(with_times, function(st) {
+        sprintf("'%s' before %s", st, format_items(quote_items(per[[st]]), max = 5L))
+      }, character(1))
+      add("baseline", "info", sprintf(
+        paste(
+          "Stressors applied later than others: %s; the other stressors were",
+          "applied before the first sampling. Interactions that involve a stressor",
+          "are not estimated or tested before it was applied; those samplings are",
+          "kept in the models."
+        ),
+        paste(pieces, collapse = "; ")
       ))
     } else {
       value <- suppressWarnings(as.numeric(times))
@@ -980,7 +1299,7 @@ design_checks <- function(spec, keys, cells, missing_cells, sets, group_info = l
         "%d of the %d combinations of the observed levels are absent (%s).",
         "Interactions that need them are not identifiable (see `sets`)."
       ),
-      nrow(missing_cells$table), missing_cells$n_full * length(unique(cells$context)),
+      nrow(missing_cells$table), missing_cells$n_full,
       format_items(quote_items(short_cells(missing_cells$table$cell, spec$control,
                                            missing_cells$table$context)), max = 3L)
     ))
@@ -990,8 +1309,8 @@ design_checks <- function(spec, keys, cells, missing_cells, sets, group_info = l
   if (nrow(ok) == 0L) {
     add("identifiable_sets", "problem", paste(
       "No group of cells identifies an interaction. Each interaction needs, in",
-      "the same `by` group, the control, each stressor alone and their",
-      "combination."
+      "the same `by` group (or among the rows shared with it), the control,",
+      "each stressor alone and their combination."
     ))
   } else {
     by_order <- table(ok$order)
@@ -1030,9 +1349,49 @@ design_checks <- function(spec, keys, cells, missing_cells, sets, group_info = l
       sum(ok$shared), n_max
     ))
   }
+  # Rows shared by several `by` groups
+  if (length(pools$shared) > 0L) {
+    users <- names(pools$pools)[lengths(pools$pools) > 1L]
+    shared_cells <- cells[cells$context %in% pools$shared, , drop = FALSE]
+    add("shared", "info", sprintf(
+      paste(
+        "Rows of %s are shared: their %d treatment combination(s) (%s) complete the",
+        "contrast sets of %d other `by` group(s), whose estimates are therefore",
+        "correlated."
+      ),
+      format_items(quote_items(pools$shared), max = 3L), nrow(shared_cells),
+      format_items(quote_items(short_cells(shared_cells$cell, spec$control)), max = 3L),
+      length(users)
+    ))
+    unused <- setdiff(pools$shared, unlist(lapply(pools$pools, `[`, -1L)))
+    if (length(unused) > 0L) {
+      add("shared", "warning", sprintf(
+        "No `by` group matches the shared rows of %s in the other `by` columns: no set uses them.",
+        format_items(quote_items(unused), max = 3L)
+      ))
+    }
+    both <- character()
+    for (ctx in users) {
+      own <- cells$cell[cells$context == ctx]
+      common <- intersect(own, cells$cell[cells$context %in% pool_of(pools, ctx)[-1L]])
+      both <- c(both, short_cells(common, spec$control, rep(ctx, length(common))))
+    }
+    if (length(both) > 0L) {
+      add("shared", "warning", sprintf(
+        paste(
+          "%d combination(s) are both shared and observed within a `by` group",
+          "(%s): the sets of that group use its own and ignore the shared ones."
+        ),
+        length(both), format_items(quote_items(both), max = 3L)
+      ))
+    }
+  }
   for (gi in group_info) {
     msg <- group_messages(gi, sets$sets, sets$set_cells, cells)
     add("groups", msg$severity, msg$message)
+  }
+  for (lc in labels) {
+    add(lc$check, lc$severity, lc$message)
   }
   for (nl in nested) {
     add(nl$check, nl$severity, nl$message)
@@ -1068,12 +1427,28 @@ print.must_design <- function(x, ...) {
     if (is.null(spec$unit)) "none (rows)" else spec$unit,
     if (is.null(spec$time)) {
       "none"
-    } else if (is.null(spec$baseline)) {
+    } else if (is.null(spec$baseline_by)) {
       spec$time
-    } else {
+    } else if (!is.null(spec$baseline) &&
+               all(vapply(spec$baseline_by, setequal, logical(1), spec$baseline))) {
       sprintf("%s (baseline: %s)", spec$time, paste(spec$baseline, collapse = ", "))
+    } else {
+      later <- spec$baseline_by[lengths(spec$baseline_by) > 0L]
+      sprintf("%s (baseline: %s)", spec$time, paste(
+        vapply(names(later), function(st) {
+          sprintf("%s before %s", st, paste(later[[st]], collapse = ", "))
+        }, character(1)),
+        collapse = "; "
+      ))
     },
-    if (is.null(spec$by)) "none" else paste(spec$by, collapse = ", "),
+    if (is.null(spec$by)) {
+      "none"
+    } else if (is.null(spec$shared)) {
+      paste(spec$by, collapse = ", ")
+    } else {
+      sprintf("%s (shared: %s)", paste(spec$by, collapse = ", "),
+              paste(names(spec$shared), "=", spec$shared, collapse = ", "))
+    },
     if (is.null(spec$groups)) "none" else paste(spec$groups, collapse = ", ")
   ))
   ok <- x$sets[x$sets$net_identifiable, , drop = FALSE]

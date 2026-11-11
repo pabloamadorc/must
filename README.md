@@ -1,7 +1,7 @@
 
 <!-- README.md is generated from README.Rmd. Edit README.Rmd and render it with rmarkdown::render("README.Rmd") after installing the package. -->
 
-# must
+# must <img src="man/figures/logo.png" align="right" height="160" alt="" />
 
 <!-- badges: start -->
 
@@ -21,22 +21,40 @@ three decisions behind any claim of synergism or antagonism:
     linear mixed model (glmmTMB) to each response and chooses its error
     distribution by convergence, simulation-based residual checks
     (DHARMa) and AIC.
-3.  **What “non-additive” means.** `estimate_interactions()` tests the
-    simple addition (AD), multiplicative (MU) and dominance (DO) null
-    models from the predictions of that single model (post-estimation
-    inference, Madge Pimentel et al. 2025), by default with a correction
-    for experiments with few replicates. With three or more stressors it
-    separates the net deviation from the single-stressor effects from
-    the pure highest-order interaction. `classify_interactions()` gives
-    the directional classes of Piggott et al. (2015).
+3.  **What “non-additive” means.** `estimate_interactions()` tests each
+    combination of stressors against one or more null models with the
+    same criteria, from the predictions of a single model
+    (post-estimation inference, Madge Pimentel et al. 2025), by default
+    with a correction for experiments with few replicates. The model is
+    the one chosen by `fit_responses()` or one fitted with another
+    package (`lm()`, `glm()`, `mgcv::gam()`, lme4, glmmTMB and others,
+    through emmeans). The default null model is simple addition (AD),
+    the one that flagged the fewest false interactions across mechanisms
+    in simulations; the multiplicative (MU) and dominance (DO) models,
+    Bliss independence (BL), with the emergent three-way interaction of
+    Beppler et al. (2016), the stress addition model (SAM) of Liess et
+    al. (2016) and concentration addition (CA, Loewe additivity) are
+    chosen in `null_models`, by name or with `suggest_null_models()`,
+    which applies the guidelines of Schäfer & Piggott (2018) to what is
+    known about the stressors. With three or more stressors it separates
+    the net deviation from the single-stressor effects from the pure
+    highest-order interaction. `classify_interactions()` gives the
+    directional classes of Piggott et al. (2015).
+
+`report_interactions()` then writes the methods of the analysis, with
+the works cited, and a table of every decision behind it, from the
+settings of the objects.
 
 Orr et al. (2020) name the use of null models as a major unresolved
 issue in multiple-stressor research and ask researchers to know the
 alternatives and how each relates to a statistical test; must is built
 to report them side by side.
 
-> **Status:** version 0.1.0, not yet on CRAN. The interface may still
+> **Status:** version 0.2.0, not yet on CRAN. The interface may still
 > change.
+
+The website, <https://pabloamadorc.github.io/must/>, has the help pages,
+the vignettes and the case studies.
 
 ## Installation
 
@@ -102,11 +120,13 @@ fits
 #>   daphnia: tweedie (log link; continuous, detected), AIC 410.0, n = 96, missing = 0, residual checks: not run
 ```
 
-Interactions under the three null models, with Krinsky–Robb intervals
-and the small-sample correction (the default):
+Interactions under the three null models of Madge Pimentel et al. (2025)
+(AD alone by default), with Krinsky–Robb intervals and the small-sample
+correction (the default):
 
 ``` r
-est <- estimate_interactions(fits, n_sim = 4000, seed = 2021)
+est <- estimate_interactions(fits, null_models = c("AD", "MU", "DO"), n_sim = 4000,
+                             seed = 2021)
 summary(est)
 #> Interactions: Krinsky-Robb simulation; small-sample correction; adjusted p-values (BH) below 0.05
 #> Deviating / tested interactions by sampling time:
@@ -136,6 +156,15 @@ summary(est)
 #>        daphnia    AD 1 AD      1 AD 1 AD        
 #>        daphnia    MU 1 AD      1 AD 1 AD        
 #> 
+#> Agreement between null models (AD, MU, DO), robust/model-dependent/conflicting/none:
+#>       response estimand       7      14      30      50 overall
+#>  total_density      net 0/0/0/4 0/0/0/4 0/0/0/4 0/0/0/4 0/0/0/4
+#>  total_density     pure 0/0/0/1 0/0/0/1 0/0/0/1 0/0/0/1 0/0/0/1
+#>     cyclopoida      net 0/0/0/4 0/0/0/4 0/0/0/4 0/0/0/4 0/0/0/4
+#>     cyclopoida     pure 0/0/0/1 0/0/0/1 0/0/0/1 0/0/0/1 0/0/0/1
+#>        daphnia      net 0/0/0/1 0/0/0/0 0/0/0/1 0/0/0/1 0/0/0/0
+#>        daphnia     pure 0/0/0/0 0/0/0/0 0/0/0/0 0/0/0/0 0/0/0/0
+#> 
 #> Counts of boundary tests and of rows not estimated: `$interactions`; classes: `$classes`.
 ```
 
@@ -152,16 +181,17 @@ day7 <- function(x) {
          c("estimand", "estimate", "lower", "upper", "df", "p_value", "p_adjusted")]
   e[c("estimate", "lower", "upper")] <- lapply(e[c("estimate", "lower", "upper")], signif, 3)
   e[c("p_value", "p_adjusted")] <- lapply(e[c("p_value", "p_adjusted")], signif, 2)
+  rownames(e) <- NULL
   e
 }
 day7(est)
-#>     estimand estimate lower upper df p_value p_adjusted
-#> 140      net    -1580 -3770  -320 16   0.023       0.18
-#> 141     pure      645 -1120  2800 16   0.410       0.56
+#>   estimand estimate lower upper df p_value p_adjusted
+#> 1      net    -1580 -3770  -320 16   0.023       0.18
+#> 2     pure      645 -1120  2800 16   0.410       0.56
 day7(asymptotic)
-#>     estimand estimate lower upper  df p_value p_adjusted
-#> 140      net    -1610 -3020  -650 Inf  0.0025       0.02
-#> 141     pure      654  -647  2210 Inf  0.3100       0.42
+#>   estimand estimate lower upper  df p_value p_adjusted
+#> 1      net    -1610 -3020  -650 Inf  0.0025       0.02
+#> 2     pure      654  -647  2210 Inf  0.3100       0.42
 ```
 
 On day 7 the three-stressor combination falls below the sum of the
@@ -200,22 +230,92 @@ effect is tested from the probability of observing only zeros
 (`status = "boundary"`), but the interactions that use it cannot be
 measured.
 
+`report_interactions()` writes the methods of this analysis from the
+settings of the objects; this is its paragraph on the models:
+
+``` r
+report <- report_interactions(est, classes = cls)
+cat(strwrap(report$methods[[2]], width = 100), sep = "\n")
+#> The analysis was run with the R package must 0.2.0 (Amador Crespo 2026) in R 4.3.3 (R Core Team
+#> 2024). Each response (total_density, cyclopoida and daphnia) was modelled with a generalized linear
+#> mixed model with one mean per treatment combination and sampling time (a cell-means model) and a
+#> random intercept for each mesocosm, fitted by maximum likelihood with glmmTMB 1.1.8 (Brooks et al.
+#> 2017). The error distribution was chosen among candidates suited to the values of each response
+#> (Gaussian (identity link), Gaussian (log link), Gamma (log link) and lognormal (log link), for
+#> total_density; Gaussian (identity link), Gaussian (log link) and Tweedie (log link), for cyclopoida
+#> and daphnia): the candidate that converged with a positive-definite Hessian and had the lowest AIC
+#> was selected. The models selected were Gamma (log link) for total_density; Tweedie (log link) for
+#> cyclopoida and daphnia. The means of the treatment combinations with only zeros (6 for daphnia)
+#> were fixed at the boundary of the link function; a contrast that compares such a combination with
+#> its expectation was tested from the probability of observing only zeros under that expectation, and
+#> contrasts that need such a combination to compute it were not estimated. For the inference, the
+#> selected models were refitted by restricted maximum likelihood (REML).
+```
+
+`report$decisions` lists every decision with its argument, the value
+used, its default and its source, and
+`format(report, format = "markdown")` gives the paragraphs, the table
+and the references for an R Markdown or Quarto document.
+
 ## Methods and decisions
 
-| Null model          | “No interaction” means               | Interaction estimate (two stressors) |
-|---------------------|--------------------------------------|--------------------------------------|
-| AD, simple addition | changes add up on the response scale | yAB − yA − yB + y0                   |
-| MU, multiplicative  | relative changes multiply            | ln yAB − ln yA − ln yB + ln y0       |
-| DO, dominance       | the strongest single effect prevails | min(yAB, y0) − min(yA, yB)           |
+| Null model                 | “No interaction” means                         | Interaction estimate (two stressors) |
+|----------------------------|------------------------------------------------|--------------------------------------|
+| AD, simple addition        | changes add up on the response scale           | yAB − yA − yB + y0                   |
+| MU, multiplicative         | relative changes multiply                      | ln yAB − ln yA − ln yB + ln y0       |
+| DO, dominance              | the strongest single effect prevails           | min(yAB, y0) − min(yA, yB)           |
+| BL, Bliss independence     | relative responses w = y / y0 multiply         | wAB − wA wB                          |
+| SAM, stress addition       | the general stresses of the stressors add up   | wAB − wSAM                           |
+| CA, concentration addition | each stressor acts as a dilution of the others | wAB − wCA                            |
 
+- **Choosing the null models.** `suggest_null_models()` follows the
+  guidelines of Schäfer & Piggott (2018, Fig. 3): whether the stressors
+  act similarly, whether one acts specifically on physiology, whether
+  the effect is mortality, whether the stressor-effect relationship or
+  the sensitivity distribution is known, how the sensitivities are
+  correlated, and how large the effects of the stressors alone are
+  relative to the effect limit (given, or estimated from the fitted
+  model with their intervals). Unknown criteria take every value, so
+  that it returns the range of null models that the guidelines allow,
+  with the reasons for each; the result goes to
+  `estimate_interactions(null_models = )`. Stressors may also increase
+  the response: their effects keep their sign, each set gets the
+  interaction type of Piggott et al. (2015), and a proportion that the
+  stressors increase is judged on its complement.
+- **Default null model.** AD. In simulated experiments generated without
+  interaction by AD, MU (or BL), DO, SAM or CA, each null model flagged
+  interactions at about the nominal rate when the data followed its own
+  mechanism, but none was robust to all; AD flagged the fewest false
+  interactions on average among the null models that two-level
+  factorials can test (20%, against 24% for MU and BL, 27% for SAM and
+  32% for DO), with a rule fixed before the simulations. Data generated
+  by stress addition looked synergistic to every other null model. CA
+  was more robust still in dose designs, which it needs. The simulation
+  is installed with the package
+  (`system.file("simulations", package = "must")`). Name the null model
+  of a mechanistic hypothesis in `null_models`; with several,
+  `compare_null_models()` tells which interactions all of them flag
+  (`"robust"`), which only some (`"model_dependent"`) and which they
+  flag in opposite directions (`"conflicting"`).
+- **Equivalence.** “AD” means only that no deviation was detected. With
+  an equivalence margin declared before the analysis (`margin`, no
+  default), each interaction is also tested for equivalence (two
+  one-sided tests on its relative deviation, (observed − expected) /
+  reference, the same scale for every null model), and
+  `classify_interactions()` tells deviations, negligible deviations,
+  equivalence and inconclusive results apart.
 - **Estimands.** For k ≥ 3 stressors, `net` = yK − Σ yi + (k − 1) y0 (or
   on the log scale) and `pure` = inclusion–exclusion over all 2^k
-  combinations. DO is defined for two stressors only. By default,
-  interactions are estimated with the other stressors at control;
-  `background = "all"` in `describe_design()` also estimates them in the
-  presence of the others.
+  combinations; under BL, `net` = wK − Π wi and, for three stressors,
+  `pure` is the emergent interaction of Beppler et al. (2016), with
+  their rescaled value reported as a description of size. SAM and CA
+  give the net interaction only, and CA needs at least two doses of each
+  stressor tested alone. DO is defined for two stressors only. By
+  default, interactions are estimated with the other stressors at
+  control; `background = "all"` in `describe_design()` also estimates
+  them in the presence of the others.
 - **Inference.** Krinsky–Robb simulation (as in Madge Pimentel et
-  al. 2025) or the delta method for AD and MU. By default
+  al. 2025) or the delta method (not for DO). By default
   (`correction =   "small_sample"`) the covariance comes from a REML
   refit and the sampling distribution is a t with the degrees of freedom
   of the experimental units (column `df`); `correction = "none"`
@@ -229,14 +329,31 @@ measured.
   or per treatment combination (`dispersion`). A combination with only
   zeros is tested from the probability of that outcome under the null
   model.
-- **Assumptions.** Means are conditional on random effects at zero; MU
-  and DO assume that an increase in the response means tolerance
-  (declare the responses where it means sensitivity in `sensitivity`); a
-  random intercept per unit does not model temporal autocorrelation (an
-  AR1 structure can be given in `random`); selection of the error
-  distribution is not included in the uncertainty.
+- **Reporting.** `report_interactions()` writes the methods from the
+  settings of the objects (design, model selection, null models and the
+  criteria behind them, inference and classes), with the works cited,
+  and a table with every decision: the argument that controls it, the
+  value used, its default and whether it was the default, set by the
+  user, chosen by must or estimated.
+- **Models fitted outside must.** `estimate_interactions(model, design)`
+  takes the means of the treatment combinations from emmeans and applies
+  the same contrasts and tests; the degrees of freedom are those of
+  emmeans or are given in `df`.
+- **Assumptions.** Means are conditional on random effects at zero; MU,
+  DO, BL, SAM and CA assume that an increase in the response means
+  tolerance (declare the responses where it means sensitivity in
+  `sensitivity`); a random intercept per unit does not model temporal
+  autocorrelation (an AR1 structure can be given in `random`); selection
+  of the error distribution is not included in the uncertainty.
 
-`vignette("must")` walks through these decisions in more detail.
+`vignette("must")` walks through these decisions in more detail, and
+`vignette("mesocosms")` applies the whole workflow to the two mesocosm
+experiments whose data come with the package (Polazzo & Rico 2021;
+Hermann et al. 2024). The [case
+studies](https://pabloamadorc.github.io/must/articles/case-studies.html)
+of the website reanalyse six published experiments with other designs,
+whose data also come with the package, from drought and plant invasion
+on field plots in blocks to five global changes on split plots.
 
 ## Status of the checks
 
@@ -247,7 +364,15 @@ measured.
   dispersion per combination; the probability of a combination with only
   zeros (closed forms and numerical integration); the dominance
   estimate; the identity *net = pure + pairwise interactions* for three
-  stressors; and the 45 rows of Table 1 of Piggott et al. (2015).
+  stressors; the Bliss net and emergent interactions and their rescaled
+  values (eqs. 2.1–2.4 of Beppler et al. 2016); the stress addition
+  model (eqs. 2–5 of Liess et al. 2016); concentration addition (no
+  interaction in data that follow it, log-logistic fits equal to
+  `nls()`); for models fitted outside must, the interaction coefficients
+  and tests of `lm()`, `glm()`, `mgcv::gam()`, glmmTMB and lme4 models;
+  the 45 rows of Table 1 of Piggott et al. (2015); and the seven steps
+  of Fig. 3 of Schäfer & Piggott (2018), with the effects of the
+  stressors alone and their intervals.
 - Type I error and power in simulated 2 × 2 experiments (Gaussian,
   Gamma, negative binomial and Poisson models, with and without repeated
   measures). With three replicates per combination, the asymptotic tests
@@ -255,18 +380,38 @@ measured.
   12.8%, Gamma MU 13.5%, negative binomial MU 10.3%, Gaussian DO 16.5%)
   and the corrected ones in 2–7%; Poisson tests, without a dispersion
   parameter, are the same either way.
-- Tried on seventeen published multiple-stressor data sets with
-  different designs (full and partial factorials with two to twelve
-  stressors, gradients, blocks, split plots, repeated measures,
-  pre-treatment samplings, survival out of a number of animals, counts
-  per unit of effort, sequential exposures): the description of each
-  design matches an independent tabulation of the original files, and
-  the results that do not depend on the model (raw cell means, net
-  deviations as sums of pure interactions) agree; 90 checks, all passed.
+- Tried on 36 published multiple-stressor data sets with different
+  designs (full and partial factorials with two to twelve stressors,
+  gradients, checkerboards, blocks, split plots, repeated measures,
+  pre-treatment samplings, a stressor applied later than the others,
+  controls shared by several groups or orders of application, survival
+  out of a number of animals, counts per unit of effort, sequential
+  exposures): the description of each design matches an independent
+  tabulation of the original files, and the results that do not depend
+  on the model (raw cell means, net deviations as sums of pure
+  interactions) agree; 143 checks, all passed.
 - `R CMD check` runs on Linux, macOS and Windows with GitHub Actions,
   including the DHARMa residual checks.
 
 ## References
+
+Beppler, C., Tekin, E., Mao, Z., White, C., McDiarmid, C., Vargas, E.,
+Miller, J. H., Savage, V. M., & Yeh, P. J. (2016). Uncovering emergent
+interactions in three-way combinations of stressors. *Journal of the
+Royal Society Interface*, 13, 20160800.
+<https://doi.org/10.1098/rsif.2016.0800>
+
+Hermann, M., Polazzo, F., Cherta, L., Crettaz-Minaglia, M.,
+García-Astillero, A., Peeters, E. T. H. M., Rico, A., & Van den Brink,
+P. J. (2024). Combined stress of an insecticide and heatwaves or
+elevated temperature induce community and food web effects in a
+Mediterranean freshwater ecosystem. *Water Research*, 260, 121903.
+<https://doi.org/10.1016/j.watres.2024.121903>. Data:
+<https://doi.org/10.5281/zenodo.11520459> (CC BY 4.0).
+
+Liess, M., Foit, K., Knillmann, S., Schäfer, R. B., & Liess, H.-D.
+(2016). Predicting the synergy of multiple stress effects. *Scientific
+Reports*, 6, 32965. <https://doi.org/10.1038/srep32965>
 
 Madge Pimentel, I., Albini, D., Beermann, A. J., Leese, F., Macaulay, S.
 J., Matthaei, C. D., Orr, J. A., Piggott, J. J., & Schäfer, R. B.
@@ -291,6 +436,11 @@ Polazzo, F., & Rico, A. (2021). Effects of multiple stressors on the
 dimensionality of ecological stability. *Ecology Letters*, 24(8),
 1594–1606. <https://doi.org/10.1111/ele.13770>. Data:
 <https://doi.org/10.5061/dryad.qfttdz0gt> (CC0 1.0).
+
+Schäfer, R. B., & Piggott, J. J. (2018). Advancing understanding and
+prediction in multiple stressor research through a mechanistic basis for
+null models. *Global Change Biology*, 24(5), 1817–1826.
+<https://doi.org/10.1111/gcb.14073>
 
 ## License
 

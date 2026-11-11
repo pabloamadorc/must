@@ -119,7 +119,9 @@ they were not run), \code{formula} (of the selected candidate), \code{n_obs},
 \code{n_missing} (rows without a response value) and \code{grid} (treatment
 combinations and times predicted later).
 \item \code{design}: the design.
-\item \code{settings}: the arguments used, with the seed.
+\item \code{settings}: the arguments used, with the seed (and whether it was
+given), the families of the candidates given in \code{families} and the
+versions of must, R, glmmTMB and, with the residual checks, DHARMa.
 }
 }
 \description{
@@ -140,8 +142,15 @@ and \code{by} group plus a common effect of time.
 \strong{Default candidates.} Responses with \code{trials} are binomial: binomial and
 beta-binomial, both with a logit link. Otherwise whole non-negative
 numbers are treated as counts (the \code{type_source} says the type was
-detected): Poisson and negative binomial (NB2), both with a log link.
-Continuous values: Gaussian, Gaussian with log link, Gamma with log link
+detected): Poisson and negative binomial (NB2), both with a log link,
+but the Poisson is selected only if the negative binomial does not
+converge, as happens when the counts show no overdispersion to estimate.
+With overdispersed counts and four units per combination, the AIC chose
+the Poisson in a fifth of simulated experiments (the residual checks
+passed it too), and then the tests of \code{\link[=estimate_interactions]{estimate_interactions()}} rejected
+true null models too often; fitting the negative binomial kept them close
+to their nominal error, at a small cost in power when the counts are
+truly Poisson. Continuous values: Gaussian, Gaussian with log link, Gamma with log link
 and lognormal if all values are positive; Gaussian, Gaussian with log
 link and Tweedie if there are zeros; Gaussian only if there are negative
 values. With an \code{offset} only the log-link candidates are kept. Use
@@ -178,7 +187,8 @@ converged; the \code{random} column of \code{selection} and the \code{reason} sa
 Terms given in \code{random} are never removed.
 
 \strong{Selection.} Candidates that fail to converge or have a non-positive
-definite Hessian are discarded. With \code{residual_checks = TRUE}, a candidate
+definite Hessian are discarded, and so is the default Poisson for counts
+when the negative binomial is left. With \code{residual_checks = TRUE}, a candidate
 passes when the three DHARMa tests give p >= 0.05; if at least one
 candidate passes, only those compete, and otherwise those passing the
 most tests (\code{checks_passed = FALSE}: inspect that model before using
