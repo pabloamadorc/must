@@ -21,7 +21,7 @@
 ## Citation
 
 Source:
-[`inst/CITATION`](https://github.com/pabloamadorc/must/blob/main/inst/CITATION)
+[`inst/CITATION`](https://github.com/pabloamadorc/must/blob/v0.3.0/inst/CITATION)
 
 Amador Crespo, P., & Rico, A. (2026). must: Multiple-Stressor
 Interactions Under Alternative Null Models. R package version 0.3.0.
