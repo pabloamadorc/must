@@ -193,10 +193,30 @@ cls[cls$response == "total_density" & cls$time == "7" & cls$null_model == "AD",
 
 With the correction for small samples and the adjustment for multiple tests,
 no interaction of this experiment deviates clearly from the null models.
+`plot()` shows how each interaction arises: the effect of each stressor
+alone, the combined effect expected under the null model (the observed
+combined effect minus the net interaction), the combined effect observed and
+the interaction, with its class at the right. On day 7, under AD, the first
+null model:
 
-```{r example-plot, fig.width = 7, fig.height = 4}
-plot(est, response = "total_density", null_model = "MU")
+```{r example-plot, fig.width = 7, fig.height = 8.5}
+plot(est, response = "total_density", time = "7")
 ```
+
+Filled points have an adjusted p-value below 0.05. The intervals are not
+adjusted for the number of sets and times, so an interval can exclude zero
+while its adjusted p-value stays above 0.05, as for the insecticide and
+nutrients here. `type = "models"` draws the same interactions under each
+null model, as deviations relative to the reference cell, a quantity the
+null models share, with the class under each:
+
+```{r example-plot-models, fig.width = 7, fig.height = 6.5}
+plot(est, response = "total_density", type = "models", time = "7")
+```
+
+`type = "interactions"` draws the interactions alone, one row each, which
+suits many sets and times (`group_by` writes what they share as headers),
+and `type = "time"` follows each set over the sampling times.
 
 ### 6. Methods and decisions
 

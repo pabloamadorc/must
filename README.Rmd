@@ -57,7 +57,7 @@ multiple-stressor research and ask researchers to know the alternatives and
 how each relates to a statistical test; must is built to report them side by
 side.
 
-> **Status:** version 0.2.0, not yet on CRAN. The interface may still
+> **Status:** version 0.3.0, not yet on CRAN. The interface may still
 > change.
 
 The website, <https://pabloamadorc.github.io/must/>, has the help pages,
@@ -143,9 +143,20 @@ net deviation is no longer significant, whereas the asymptotic procedure
 would call it significant. (The estimates differ slightly because, with
 random effects, the corrected ones come from the REML refit.)
 
-```{r plot, fig.width = 7, fig.height = 3.5}
-plot(est, response = "total_density", null_model = "MU", time = c("7", "overall"))
+`plot()` shows how an interaction arises: the effect of each stressor alone,
+the combined effect that the null model expects from them, the combined
+effect observed and the interaction, which is the difference between the
+last two, with its class (see below). The three-stressor set on day 7, under
+AD:
+
+```{r plot, fig.width = 7, fig.height = 4.2}
+trio <- unique(est$estimates$set_id[est$estimates$order == 3L])
+plot(est, response = "total_density", time = "7", set_id = trio)
 ```
+
+`type = "models"` puts the null models side by side, `type = "interactions"`
+gives an overview of every set and time, and `type = "time"` follows a set
+over the sampling times (see `?plot.must_interactions`).
 
 ```{r classify}
 cls <- classify_interactions(est)

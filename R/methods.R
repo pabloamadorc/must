@@ -1,48 +1,31 @@
-#' Summarise and plot estimated interactions
+#' Summarise estimated interactions
 #'
 #' `summary()` counts, for each response, sampling time, null model and
 #' estimand, the interactions that were tested and those that deviate from
 #' the null model, tabulates their classes (see [classify_interactions()])
 #' and, with two or more null models, how often they agree (see
-#' [compare_null_models()]). `plot()` draws the estimated interactions of
-#' one response and null model with their intervals.
+#' [compare_null_models()]). To plot the interactions, see
+#' [plot.must_interactions()].
 #'
-#' @param object,x A `must_interactions` object from
-#'   [estimate_interactions()].
+#' @param object A `must_interactions` object from [estimate_interactions()].
 #' @param alpha Significance level applied to the adjusted p-values.
 #'   Default 0.05.
-#' @param response Name of the response to plot. Default: the first one.
-#' @param null_model Null model to plot, among those estimated: `"AD"`
-#'   (default), `"MU"`, `"DO"`, `"BL"`, `"SAM"` or `"CA"`.
-#' @param estimand `"net"` (default) or `"pure"`.
-#' @param time Sampling times to plot (as text, including `"overall"`).
-#'   Default: all.
-#' @param ... Further arguments passed to [graphics::plot.default()] (for
-#'   example `main` or `xlim`); ignored by `summary()`.
+#' @param ... Not used.
 #'
-#' @return `summary()` returns an object of class
-#'   `summary.must_interactions`, a list with `interactions` (one row per
-#'   response, time, null model and estimand: `n_sets`, `n_tested` (status
-#'   `"ok"` or `"boundary"`), `n_deviating` (adjusted p-value below
-#'   `alpha`), `n_positive`, `n_negative`, `n_boundary`, `n_not_estimable`
-#'   and `n_other` (not identifiable, not defined or not applicable)),
-#'   `classes` (number of sets of each class per response, time and null
-#'   model), `agreement` (with two or more null models: number of
-#'   interactions per response, time and estimand that are `n_robust`,
-#'   `n_model_dependent`, `n_conflicting`, `n_none` or `n_not_compared`;
-#'   `NULL` otherwise), `verdicts` (with an equivalence `margin` in
-#'   [estimate_interactions()]: number of interactions per response, time,
-#'   null model and estimand with each verdict, `n_deviation`,
-#'   `n_negligible`, `n_equivalent` and `n_inconclusive`; `NULL` otherwise)
-#'   and `settings`. `plot()` returns `x` invisibly.
-#'
-#' @details
-#' In the plot, filled points are interactions whose adjusted p-value is
-#' below `alpha`, open points the rest. Interactions tested from a
-#' combination with only zeros (`status = "boundary"`) have no interval and
-#' are drawn as triangles; infinite estimates (MU with a combination of
-#' zeros) are drawn at the edge of the plot. Rows without an estimate are
-#' left out.
+#' @return An object of class `summary.must_interactions`, a list with
+#'   `interactions` (one row per response, time, null model and estimand:
+#'   `n_sets`, `n_tested` (status `"ok"` or `"boundary"`), `n_deviating`
+#'   (adjusted p-value below `alpha`), `n_positive`, `n_negative`,
+#'   `n_boundary`, `n_not_estimable` and `n_other` (not identifiable, not
+#'   defined or not applicable)), `classes` (number of sets of each class per
+#'   response, time and null model), `agreement` (with two or more null
+#'   models: number of interactions per response, time and estimand that are
+#'   `n_robust`, `n_model_dependent`, `n_conflicting`, `n_none` or
+#'   `n_not_compared`; `NULL` otherwise), `verdicts` (with an equivalence
+#'   `margin` in [estimate_interactions()]: number of interactions per
+#'   response, time, null model and estimand with each verdict,
+#'   `n_deviation`, `n_negligible`, `n_equivalent` and `n_inconclusive`;
+#'   `NULL` otherwise) and `settings`.
 #'
 #' @examples
 #' jars <- expand.grid(
@@ -61,7 +44,6 @@
 #'   seed = 1, quiet = TRUE)
 #' est <- estimate_interactions(fits, null_models = c("AD", "MU"), n_sim = 2000, seed = 1)
 #' summary(est)
-#' plot(est, null_model = "MU")
 #' @name must_interactions-methods
 NULL
 
@@ -297,86 +279,6 @@ summary_wide <- function(tab) {
                        sprintf("%d/%d", tab$n_deviating[hit], tab$n_tested[hit]))
   }
   out
-}
-
-#' @rdname must_interactions-methods
-#' @export
-plot.must_interactions <- function(x, response = NULL, null_model = "AD", estimand = "net",
-                                   time = NULL, alpha = 0.05, ...) {
-  est <- x$estimates
-  responses <- unique(est$response)
-  if (length(responses) == 0L) {
-    abort_input("There are no estimates to plot.")
-  }
-  if (is.null(response)) {
-    response <- responses[[1L]]
-  }
-  check_choice(response, responses)
-  check_choice(null_model, x$settings$null_models)
-  check_choice(estimand, c("net", "pure"))
-  check_number(alpha, lower = 0, upper = 1, include_lower = FALSE, include_upper = FALSE)
-  keep <- est$response == response & est$null_model == null_model &
-    est$component == "interaction" & est$estimand %in% estimand & !is.na(est$estimate)
-  if (!is.null(time)) {
-    keep <- keep & est$time %in% as.character(time)
-  }
-  d <- est[keep, , drop = FALSE]
-  if (nrow(d) == 0L) {
-    abort_input(sprintf(
-      "No %s interaction (%s) of '%s' has an estimate to plot.", null_model, estimand, response
-    ))
-  }
-  control <- x$design$spec$control
-  label <- set_combination(d$levels, d$stressors)
-  label <- ifelse(nzchar(d$background), paste0(label, " [", compact_levels(d$background, control), "]"),
-                  label)
-  if (!all(is.na(d$time))) {
-    label <- paste0(label, " @ ", d$time)
-  }
-  if (length(unique(d$context)) > 1L) {
-    label <- paste0(d$context, ": ", label)
-  }
-  n <- nrow(d)
-  y <- rev(seq_len(n))
-  finite <- c(d$estimate, d$lower, d$upper)
-  finite <- finite[is.finite(finite)]
-  xlim <- if (length(finite) > 0L) range(c(finite, 0)) else c(-1, 1)
-  if (diff(xlim) == 0) {
-    xlim <- xlim + c(-1, 1)
-  }
-  point <- pmin(pmax(d$estimate, xlim[[1L]]), xlim[[2L]])
-  deviating <- !is.na(d$p_adjusted) & d$p_adjusted < alpha
-  boundary <- d$status == "boundary"
-  pch <- ifelse(boundary, ifelse(deviating, 17L, 2L), ifelse(deviating, 19L, 1L))
-  label_cex <- 0.7
-  width <- max(graphics::strwidth(label, units = "inches", cex = label_cex))
-  left <- min(width + 0.25, 0.55 * graphics::grconvertX(1, from = "ndc", to = "inches"))
-  withr::local_par(list(mai = c(0.9, left, 0.8, 0.2)))
-  args <- list(
-    x = point, y = y, xlim = xlim, ylim = c(0.5, n + 0.5), pch = pch, yaxt = "n",
-    ylab = "", xlab = sprintf("%s interaction (%s)", null_model, null_model_scale(null_model)),
-    main = sprintf("%s: %s, %s", response, null_model, estimand), bty = "l"
-  )
-  extra <- list(...)
-  args[names(extra)] <- extra
-  do.call(graphics::plot.default, args)
-  graphics::abline(v = 0, lty = 2, col = "grey50")
-  has_ci <- is.finite(d$lower) & is.finite(d$upper)
-  if (any(has_ci)) {
-    graphics::segments(d$lower[has_ci], y[has_ci], d$upper[has_ci], y[has_ci])
-  }
-  # mtext() draws every label (axis() drops those that overlap).
-  graphics::mtext(label, side = 2, at = y, las = 1, line = 0.3, cex = label_cex)
-  # Centred on the figure, just above the plotting region.
-  graphics::legend(
-    x = graphics::grconvertX(0.5, from = "ndc", to = "user"),
-    y = graphics::grconvertY(1, from = "npc", to = "user"), xjust = 0.5, yjust = 0,
-    xpd = NA, horiz = TRUE, bty = "n", cex = 0.75,
-    legend = c(sprintf("adjusted p < %s", format(alpha)), "not significant",
-               "only zeros (no interval)"),
-    pch = c(19L, 1L, 17L)
-  )
-  invisible(x)
 }
 
 # Short label of the levels of the stressors of a set: "salinity=high +

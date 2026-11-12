@@ -325,6 +325,12 @@ test_that("manuals are cited with their organization as text and their DOI", {
   expect_false(grepl("ROR|05qewa988", r$full))
 })
 
+test_that("must is cited with both of its authors", {
+  ref <- report_reference("must")
+  expect_identical(ref$who, "Amador Crespo & Rico")
+  expect_match(ref$full, "^Amador Crespo, P\\., & Rico, A\\. \\(2026\\)\\. \\*must: ")
+})
+
 test_that("the organization of the citation of R from R 4.6 is cited by its name", {
   new <- utils::bibentry(
     "Manual", title = "R: A Language and Environment for Statistical Computing",

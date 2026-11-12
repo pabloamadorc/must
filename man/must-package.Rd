@@ -31,7 +31,8 @@ or more stressors from its pure highest-order interaction. By default
 the tests are corrected for small samples; \code{correction = "none"} gives
 the asymptotic procedure of Madge Pimentel et al. (2025).
 \code{\link[=classify_interactions]{classify_interactions()}} assigns the directional classes of Piggott et
-al. (2015), and \code{summary()} and \code{plot()} give an overview.
+al. (2015), \code{summary()} gives an overview and
+\link[=plot.must_interactions]{plot()} draws how each interaction arises.
 }
 
 \code{\link[=suggest_null_models]{suggest_null_models()}} applies the guidelines of Schäfer & Piggott (2018)
@@ -69,6 +70,11 @@ Useful links:
 }
 \author{
 \strong{Maintainer}: Pablo Amador Crespo \email{pamadorc@gmail.com} (\href{https://orcid.org/0000-0002-3793-8794}{ORCID})
+
+Authors:
+\itemize{
+  \item Andreu Rico (\href{https://orcid.org/0000-0002-1820-4218}{ORCID})
+}
 
 }
 \keyword{internal}

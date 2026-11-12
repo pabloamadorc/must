@@ -50,7 +50,7 @@ issue in multiple-stressor research and ask researchers to know the
 alternatives and how each relates to a statistical test; must is built
 to report them side by side.
 
-> **Status:** version 0.2.0, not yet on CRAN. The interface may still
+> **Status:** version 0.3.0, not yet on CRAN. The interface may still
 > change.
 
 The website, <https://pabloamadorc.github.io/must/>, has the help pages,
@@ -206,11 +206,23 @@ whereas the asymptotic procedure would call it significant. (The
 estimates differ slightly because, with random effects, the corrected
 ones come from the REML refit.)
 
+`plot()` shows how an interaction arises: the effect of each stressor
+alone, the combined effect that the null model expects from them, the
+combined effect observed and the interaction, which is the difference
+between the last two, with its class (see below). The three-stressor set
+on day 7, under AD:
+
 ``` r
-plot(est, response = "total_density", null_model = "MU", time = c("7", "overall"))
+trio <- unique(est$estimates$set_id[est$estimates$order == 3L])
+plot(est, response = "total_density", time = "7", set_id = trio)
 ```
 
 ![](man/figures/README-plot-1.png)<!-- -->
+
+`type = "models"` puts the null models side by side,
+`type = "interactions"` gives an overview of every set and time, and
+`type = "time"` follows a set over the sampling times (see
+`?plot.must_interactions`).
 
 ``` r
 cls <- classify_interactions(est)
@@ -236,20 +248,20 @@ settings of the objects; this is its paragraph on the models:
 ``` r
 report <- report_interactions(est, classes = cls)
 cat(strwrap(report$methods[[2]], width = 100), sep = "\n")
-#> The analysis was run with the R package must 0.2.0 (Amador Crespo 2026) in R 4.3.3 (R Core Team
-#> 2024). Each response (total_density, cyclopoida and daphnia) was modelled with a generalized linear
-#> mixed model with one mean per treatment combination and sampling time (a cell-means model) and a
-#> random intercept for each mesocosm, fitted by maximum likelihood with glmmTMB 1.1.8 (Brooks et al.
-#> 2017). The error distribution was chosen among candidates suited to the values of each response
-#> (Gaussian (identity link), Gaussian (log link), Gamma (log link) and lognormal (log link), for
-#> total_density; Gaussian (identity link), Gaussian (log link) and Tweedie (log link), for cyclopoida
-#> and daphnia): the candidate that converged with a positive-definite Hessian and had the lowest AIC
-#> was selected. The models selected were Gamma (log link) for total_density; Tweedie (log link) for
-#> cyclopoida and daphnia. The means of the treatment combinations with only zeros (6 for daphnia)
-#> were fixed at the boundary of the link function; a contrast that compares such a combination with
-#> its expectation was tested from the probability of observing only zeros under that expectation, and
-#> contrasts that need such a combination to compute it were not estimated. For the inference, the
-#> selected models were refitted by restricted maximum likelihood (REML).
+#> The analysis was run with the R package must 0.3.0 (Amador Crespo & Rico 2026) in R 4.3.3 (R Core
+#> Team 2024). Each response (total_density, cyclopoida and daphnia) was modelled with a generalized
+#> linear mixed model with one mean per treatment combination and sampling time (a cell-means model)
+#> and a random intercept for each mesocosm, fitted by maximum likelihood with glmmTMB 1.1.8 (Brooks
+#> et al. 2017). The error distribution was chosen among candidates suited to the values of each
+#> response (Gaussian (identity link), Gaussian (log link), Gamma (log link) and lognormal (log link),
+#> for total_density; Gaussian (identity link), Gaussian (log link) and Tweedie (log link), for
+#> cyclopoida and daphnia): the candidate that converged with a positive-definite Hessian and had the
+#> lowest AIC was selected. The models selected were Gamma (log link) for total_density; Tweedie (log
+#> link) for cyclopoida and daphnia. The means of the treatment combinations with only zeros (6 for
+#> daphnia) were fixed at the boundary of the link function; a contrast that compares such a
+#> combination with its expectation was tested from the probability of observing only zeros under that
+#> expectation, and contrasts that need such a combination to compute it were not estimated. For the
+#> inference, the selected models were refitted by restricted maximum likelihood (REML).
 ```
 
 `report$decisions` lists every decision with its argument, the value

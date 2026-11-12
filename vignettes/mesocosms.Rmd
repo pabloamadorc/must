@@ -148,6 +148,16 @@ phyto_classes[phyto_classes$time == "overall" & phyto_classes$null_model != "DO"
               c("stressors", "null_model", "single_codes", "code_interaction", "class")]
 ```
 
+`plot()` with `type = "models"` draws them under each null model, as
+deviations relative to the control; here the three pairs averaged over the
+samplings (the three stressors together, whose bloom dwarfs them, are left
+out):
+
+```{r phyto-models, fig.width = 7, fig.height = 5.5}
+pairs <- unique(e$set_id[e$order == 2L])
+plot(phyto_est, type = "models", time = "overall", set_id = pairs)
+```
+
 The mean densities explain them:
 
 ```{r phyto-means}
@@ -303,9 +313,8 @@ The intervals of those effects exclude no change, but their adjusted
 p-values are just above 0.05: intervals are not adjusted for the twelve sets
 and times, p-values are.
 
-```{r zoo-interactions, fig.width = 7, fig.height = 4}
+```{r zoo-interactions}
 summary(zoo_est)
-plot(zoo_est, null_model = "MU")
 rel <- e[e$component == "interaction" & e$null_model == "MU" & e$time != "overall",
          c("time", "levels", "relative", "relative_lower", "relative_upper")]
 rel$levels <- sub(".*temperature=", "", rel$levels)
@@ -319,6 +328,14 @@ under MU, (observed − expected) / reference, have intervals far wider than
 ±0.5. With four mesocosms per combination and densities this variable, the
 experiment cannot tell additivity from interactions as large as the effects
 of the stressors themselves.
+
+With `type = "time"`, `plot()` follows each set over the samplings: the
+effects of each stressor alone and the expected and observed combined
+effects (top), and the interaction with its class (bottom), here under MU:
+
+```{r zoo-time, fig.width = 7, fig.height = 6.5}
+plot(zoo_est, type = "time", null_model = "MU")
+```
 
 ### Chironomids
 

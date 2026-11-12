@@ -346,9 +346,9 @@ must_reference <- function() {
     NULL
   }
   if (is.null(bib)) {
-    return(list(who = "Amador Crespo", year = "n.d.", full = sprintf(paste(
-      "Amador Crespo, P. (n.d.). *must: Multiple-Stressor Interactions Under",
-      "Alternative Null Models*. R package version %s.",
+    return(list(who = "Amador Crespo & Rico", year = "n.d.", full = sprintf(paste(
+      "Amador Crespo, P., & Rico, A. (n.d.). *must: Multiple-Stressor Interactions",
+      "Under Alternative Null Models*. R package version %s.",
       "<https://github.com/pabloamadorc/must>"
     ), must_version())))
   }

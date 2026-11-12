@@ -23,7 +23,8 @@
 #'    the tests are corrected for small samples; `correction = "none"` gives
 #'    the asymptotic procedure of Madge Pimentel et al. (2025).
 #'    [classify_interactions()] assigns the directional classes of Piggott et
-#'    al. (2015), and `summary()` and `plot()` give an overview.
+#'    al. (2015), `summary()` gives an overview and
+#'    [plot()][plot.must_interactions()] draws how each interaction arises.
 #'
 #' [suggest_null_models()] applies the guidelines of Schäfer & Piggott (2018)
 #' to choose the null models, and [report_interactions()] writes the methods

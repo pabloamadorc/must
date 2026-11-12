@@ -425,6 +425,28 @@ test_that("a combination with only zeros is tested from the probability of zeros
   expect_true(all(est$estimates$p_adjusted >= est$estimates$p_value, na.rm = TRUE))
 })
 
+test_that("the covariance of the fixed effects is rebuilt when vcov() of glmmTMB fails", {
+  beta <- c(a = 1, b = -20, c = 3, d = -20)
+  est <- matrix(c(1, 0.5, 0.5, 2), 2, dimnames = list(c("a", "c"), c("a", "c")))
+  # As glmmTMB 1.1.11 to 1.1.15 with two or more parameters fixed via `map`
+  failing_default <- function(model, include_nonest = TRUE) {
+    if (include_nonest) stop("number of items to replace is not a multiple of replacement length")
+    list(cond = est)
+  }
+  V <- conditional_covariance(NULL, beta, vcov_fun = failing_default)
+  expect_identical(dimnames(V), list(names(beta), names(beta)))
+  expect_identical(V[c("a", "c"), c("a", "c")], est)
+  expect_true(all(is.na(V[c("b", "d"), ])) && all(is.na(V[, c("b", "d")])))
+  # A vcov() that works is used as it is
+  full <- matrix(NA_real_, 4, 4, dimnames = list(names(beta), names(beta)))
+  full[c("a", "c"), c("a", "c")] <- est
+  expect_identical(conditional_covariance(NULL, beta, function(model, ...) list(cond = full)),
+                   full)
+  # When both fail, the error says what glmmTMB said
+  expect_error(conditional_covariance(NULL, beta, function(model, ...) stop("boom")),
+               "boom). Updating glmmTMB", fixed = TRUE, class = "must_error")
+})
+
 test_that("the probability of zeros allows for overdispersion and random effects", {
   expect_equal(prob_boundary_obs("poisson", 2, NA, NA, NA, "zero"), exp(-2))
   expect_equal(prob_boundary_obs("nbinom2", 2, NA, 1.5, NA, "zero"), stats::dnbinom(0, size = 1.5, mu = 2))

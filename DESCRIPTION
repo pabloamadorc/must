@@ -1,9 +1,12 @@
 Package: must
 Title: Multiple-Stressor Interactions Under Alternative Null Models
-Version: 0.2.0
-Authors@R:
+Version: 0.3.0
+Authors@R: c(
     person("Pablo", "Amador Crespo", email = "pamadorc@gmail.com", role = c("aut", "cre"),
-           comment = c(ORCID = "0000-0002-3793-8794"))
+           comment = c(ORCID = "0000-0002-3793-8794")),
+    person("Andreu", "Rico", role = "aut",
+           comment = c(ORCID = "0000-0002-1820-4218"))
+  )
 Description: Detects and classifies non-additive effects of multiple stressors in
     experiments, testing each combination of stressors against alternative
     null models with the same criteria. Before any model is fitted, the design
@@ -40,6 +43,7 @@ Depends:
 Imports:
     glmmTMB,
     graphics,
+    grDevices,
     stats,
     utils,
     withr

@@ -29,6 +29,7 @@ reference:
   - suggest_null_models
   - estimate_interactions
   - must_interactions-methods
+  - plot.must_interactions
   - classify_interactions
   - compare_null_models
   - report_interactions

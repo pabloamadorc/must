@@ -74,7 +74,7 @@ welch_df <- function(v, m) {
 # times, with what the estimators need.
 prepare_predictions <- function(f, model, n_sim, complement = FALSE) {
   beta <- glmmTMB::fixef(model)$cond
-  V <- as.matrix(stats::vcov(model)$cond)
+  V <- conditional_covariance(model, beta)
   grid <- f$grid
   X <- stats::model.matrix(stats::as.formula(paste("~", f$fixed)), grid)
   if (!identical(colnames(X), names(beta))) {
@@ -103,6 +103,33 @@ prepare_predictions <- function(f, model, n_sim, complement = FALSE) {
     welch_df(v, as.numeric(units))
   }
   pred
+}
+
+# Covariance of the fixed effects of the conditional model of a glmmTMB fit,
+# with NA rows and columns for the parameters fixed via `map` (combinations at
+# the boundary). vcov() of glmmTMB 1.1.11 to 1.1.15 fails when two or more
+# parameters are fixed via `map` ("number of items to replace is not a
+# multiple of replacement length"); the covariance of the estimated
+# parameters alone (`include_nonest = FALSE`) is then expanded here.
+# `vcov_fun` is an argument for the tests.
+conditional_covariance <- function(model, beta, vcov_fun = stats::vcov) {
+  full <- tryCatch(as.matrix(vcov_fun(model)$cond), error = function(e) e)
+  if (!inherits(full, "error") && identical(dim(full), rep(length(beta), 2L))) {
+    return(full)
+  }
+  est <- tryCatch(as.matrix(vcov_fun(model, include_nonest = FALSE)$cond),
+                  error = function(e) NULL)
+  if (is.null(est) || is.null(rownames(est)) || !all(rownames(est) %in% names(beta))) {
+    problem <- if (inherits(full, "error")) conditionMessage(full) else "unexpected dimensions"
+    stop(errorCondition(
+      paste0("glmmTMB did not give the covariance of the fixed effects (", problem,
+             "). Updating glmmTMB may solve it."),
+      class = "must_error", call = NULL
+    ))
+  }
+  V <- matrix(NA_real_, length(beta), length(beta), dimnames = list(names(beta), names(beta)))
+  V[rownames(est), colnames(est)] <- est
+  V
 }
 
 # Means of the cells of `grid` and their simulation draws, from the linear

@@ -1,14 +1,17 @@
 bibentry(
   bibtype = "Manual",
   title = "must: Multiple-Stressor Interactions Under Alternative Null Models",
-  author = person("Pablo", "Amador Crespo", comment = c(ORCID = "0000-0002-3793-8794")),
+  author = c(
+    person("Pablo", "Amador Crespo", comment = c(ORCID = "0000-0002-3793-8794")),
+    person("Andreu", "Rico", comment = c(ORCID = "0000-0002-1820-4218"))
+  ),
   year = "2026",
   note = sprintf("R package version %s", meta$Version),
   url = "https://github.com/pabloamadorc/must",
   textVersion = sprintf(
     paste(
-      "Amador Crespo, P. (2026). must: Multiple-Stressor Interactions Under",
-      "Alternative Null Models. R package version %s.",
+      "Amador Crespo, P., & Rico, A. (2026). must: Multiple-Stressor",
+      "Interactions Under Alternative Null Models. R package version %s.",
       "https://github.com/pabloamadorc/must"
     ),
     meta$Version
