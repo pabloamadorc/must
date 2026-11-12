@@ -39,10 +39,11 @@
   covariance of the fixed effects is now built from that of the
   estimated parameters.
 
-- Andreu Rico is now an author of the package: `citation("must")` and
-  the methods written by
+- Andreu Rico is now an author and copyright holder of the package:
+  `citation("must")` and the methods written by
   [`report_interactions()`](https://pabloamadorc.github.io/must/reference/report_interactions.md)
-  cite both authors.
+  cite both authors. The README and `DESCRIPTION` name the projects that
+  fund must.
 
 ## must 0.2.0
 

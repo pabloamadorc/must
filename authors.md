@@ -2,10 +2,21 @@
 
 ## Authors
 
-- **Pablo Amador Crespo**. Author, maintainer.
+- **Pablo Amador Crespo**. Author, maintainer, copyright holder.
   [](https://orcid.org/0000-0002-3793-8794)
 
-- **Andreu Rico**. Author. [](https://orcid.org/0000-0002-1820-4218)
+- **Andreu Rico**. Author, copyright holder.
+  [](https://orcid.org/0000-0002-1820-4218)
+
+- **Generalitat Valenciana**. Funder.  
+  ERAHUMED project, PlanGenT, CIDEGENT/2020/043
+
+- **Agencia Estatal de Investigación**. Funder.  
+  STABLE project, grant PID2025-174099OB-I00 funded by
+  MICIU/AEI/10.13039/501100011033 and by ERDF/EU
+
+- **BBVA Foundation**. Funder.  
+  Leonardo Grant for Scientific Research and Cultural Creation 2025
 
 ## Citation
 

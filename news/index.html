@@ -52,7 +52,7 @@
 </ul><p>Sets, times and groups are chosen with <code>set_id</code>, <code>time</code> and <code>context</code>; labels with <code>labels</code>, <code>stressor_labels</code>, <code>label_style</code> and <code>label_width</code>. Classes are written as codes (<code>S+</code>, <code>S-</code>, <code>A+</code>, <code>A-</code>, <code>n.d.</code>) or names (<code>classes</code>). Long figures are split into pages (<code>per_page</code>). Infinite estimates, estimates outside given limits and intervals cut by the limits end in arrows (<code>type = "models"</code> cuts intervals that reach far beyond the estimates). <code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> returns the rows drawn invisibly, and arguments it does not use are now an error instead of being passed to <code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot.default()</a></code>.</p>
 </li>
 <li><p><code><a href="../reference/estimate_interactions.html">estimate_interactions()</a></code> no longer fails with glmmTMB 1.1.11 to 1.1.15 when two or more treatment combinations have only zeros (or only successes): <code><a href="https://rdrr.io/r/stats/vcov.html" class="external-link">vcov()</a></code> of those versions fails for a model with two or more parameters fixed at the boundary, and the covariance of the fixed effects is now built from that of the estimated parameters.</p></li>
-<li><p>Andreu Rico is now an author of the package: <code>citation("must")</code> and the methods written by <code><a href="../reference/report_interactions.html">report_interactions()</a></code> cite both authors.</p></li>
+<li><p>Andreu Rico is now an author and copyright holder of the package: <code>citation("must")</code> and the methods written by <code><a href="../reference/report_interactions.html">report_interactions()</a></code> cite both authors. The README and <code>DESCRIPTION</code> name the projects that fund must.</p></li>
 </ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.2.0" id="must-020">must 0.2.0<a class="anchor" aria-label="anchor" href="#must-020"></a></h2>
@@ -96,7 +96,7 @@
 
 
     <footer><div class="pkgdown-footer-left">
-  <p>Developed by Pablo Amador Crespo, Andreu Rico.</p>
+  <p>Developed by Pablo Amador Crespo, Andreu Rico, Generalitat Valenciana, Agencia Estatal de Investigación, BBVA Foundation.</p>
 </div>
 
 <div class="pkgdown-footer-right">
