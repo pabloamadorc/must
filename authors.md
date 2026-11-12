@@ -5,20 +5,22 @@
 - **Pablo Amador Crespo**. Author, maintainer.
   [](https://orcid.org/0000-0002-3793-8794)
 
+- **Andreu Rico**. Author. [](https://orcid.org/0000-0002-1820-4218)
+
 ## Citation
 
 Source:
-[`inst/CITATION`](https://github.com/pabloamadorc/must/blob/v0.2.0/inst/CITATION)
+[`inst/CITATION`](https://github.com/pabloamadorc/must/blob/main/inst/CITATION)
 
-Amador Crespo, P. (2026). must: Multiple-Stressor Interactions Under
-Alternative Null Models. R package version 0.2.0.
+Amador Crespo, P., & Rico, A. (2026). must: Multiple-Stressor
+Interactions Under Alternative Null Models. R package version 0.3.0.
 https://github.com/pabloamadorc/must
 
     @Manual{,
       title = {must: Multiple-Stressor Interactions Under Alternative Null Models},
-      author = {Pablo {Amador Crespo}},
+      author = {Pablo {Amador Crespo} and Andreu Rico},
       year = {2026},
-      note = {R package version 0.2.0},
+      note = {R package version 0.3.0},
       url = {https://github.com/pabloamadorc/must},
     }
 

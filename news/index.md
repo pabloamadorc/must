@@ -1,5 +1,49 @@
 # Changelog
 
+## must 0.3.0
+
+- [`plot()`](https://rdrr.io/r/graphics/plot.default.html) of
+  `must_interactions` objects has been redesigned and draws four kinds
+  of figure, chosen with `type`:
+
+  - `"effects"` (the new default): for each interaction, the effect of
+    each stressor alone, the combined effect expected under the null
+    model, the combined effect observed and the interaction, with its
+    class at the right: how the interaction arises.
+  - `"interactions"`: the interactions alone, one row each, on the scale
+    of the null model or as relative deviations (`scale`), optionally
+    under headers by set, time or group (`group_by`).
+  - `"models"`: the interaction under each null model as a deviation
+    relative to the reference, with its class: whether the conclusion
+    depends on the null model.
+  - `"time"`: one figure per set with the single and combined effects
+    and the interaction over the sampling times.
+
+  Sets, times and groups are chosen with `set_id`, `time` and `context`;
+  labels with `labels`, `stressor_labels`, `label_style` and
+  `label_width`. Classes are written as codes (`S+`, `S-`, `A+`, `A-`,
+  `n.d.`) or names (`classes`). Long figures are split into pages
+  (`per_page`). Infinite estimates, estimates outside given limits and
+  intervals cut by the limits end in arrows (`type = "models"` cuts
+  intervals that reach far beyond the estimates).
+  [`plot()`](https://rdrr.io/r/graphics/plot.default.html) returns the
+  rows drawn invisibly, and arguments it does not use are now an error
+  instead of being passed to
+  [`plot.default()`](https://rdrr.io/r/graphics/plot.default.html).
+
+- [`estimate_interactions()`](https://pabloamadorc.github.io/must/reference/estimate_interactions.md)
+  no longer fails with glmmTMB 1.1.11 to 1.1.15 when two or more
+  treatment combinations have only zeros (or only successes):
+  [`vcov()`](https://rdrr.io/r/stats/vcov.html) of those versions fails
+  for a model with two or more parameters fixed at the boundary, and the
+  covariance of the fixed effects is now built from that of the
+  estimated parameters.
+
+- Andreu Rico is now an author of the package: `citation("must")` and
+  the methods written by
+  [`report_interactions()`](https://pabloamadorc.github.io/must/reference/report_interactions.md)
+  cite both authors.
+
 ## must 0.2.0
 
 - The package has a website, <https://pabloamadorc.github.io/must/>,

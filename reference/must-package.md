@@ -31,10 +31,11 @@ explicit and separates three questions:
     `correction = "none"` gives the asymptotic procedure of Madge
     Pimentel et al. (2025).
     [`classify_interactions()`](https://pabloamadorc.github.io/must/reference/classify_interactions.md)
-    assigns the directional classes of Piggott et al. (2015), and
-    [`summary()`](https://rdrr.io/r/base/summary.html) and
-    [`plot()`](https://rdrr.io/r/graphics/plot.default.html) give an
-    overview.
+    assigns the directional classes of Piggott et al. (2015),
+    [`summary()`](https://rdrr.io/r/base/summary.html) gives an overview
+    and
+    [plot()](https://pabloamadorc.github.io/must/reference/plot.must_interactions.md)
+    draws how each interaction arises.
 
 [`suggest_null_models()`](https://pabloamadorc.github.io/must/reference/suggest_null_models.md)
 applies the guidelines of Schäfer & Piggott (2018) to choose the null
@@ -80,3 +81,7 @@ Useful links:
 
 **Maintainer**: Pablo Amador Crespo <pamadorc@gmail.com>
 ([ORCID](https://orcid.org/0000-0002-3793-8794))
+
+Authors:
+
+- Andreu Rico ([ORCID](https://orcid.org/0000-0002-1820-4218))

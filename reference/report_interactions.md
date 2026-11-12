@@ -121,17 +121,17 @@ report
 #> design (4 treatment combinations), with 5 experimental units (jar) per
 #> combination. The design identified one contrast set, a pairwise interaction.
 #> 
-#> The analysis was run with the R package must 0.2.0 (Amador Crespo 2026) in R
-#> 4.6.2 (R Core Team 2026). The response (algae) was modelled with a generalized
-#> linear model with one mean per treatment combination (a cell-means model),
-#> fitted by maximum likelihood with glmmTMB 1.1.15.2 (Brooks et al. 2017). The
-#> error distribution was chosen among candidates suited to the values of the
-#> response (Poisson (log link) and negative binomial (NB2, log link)): the
+#> The analysis was run with the R package must 0.3.0 (Amador Crespo & Rico 2026)
+#> in R 4.6.2 (R Core Team 2026). The response (algae) was modelled with a
+#> generalized linear model with one mean per treatment combination (a cell-means
+#> model), fitted by maximum likelihood with glmmTMB 1.1.15.2 (Brooks et al.
+#> 2017). The error distribution was chosen among candidates suited to the values
+#> of the response (Poisson (log link) and negative binomial (NB2, log link)): the
 #> candidate that converged with a positive-definite Hessian and had the lowest
 #> AIC was selected, except that the Poisson was used only if the negative
-#> binomial did not converge. The model selected was Poisson (log link). For the
-#> inference, the selected model was refitted by restricted maximum likelihood
-#> (REML).
+#> binomial did not converge. The model selected was negative binomial (NB2, log
+#> link). For the inference, the selected model was refitted by restricted maximum
+#> likelihood (REML).
 #> 
 #> Each interaction was tested against simple addition (AD) and the multiplicative
 #> model (MU). Following Madge Pimentel et al. (2025), each interaction was
@@ -141,11 +141,12 @@ report
 #> the log scale (MU). Uncertainty was obtained from 2,000 draws of the fixed
 #> effects from their estimated distribution (Krinsky & Robb 1986), which gave
 #> percentile intervals and two-sided p-values. To correct for small samples, the
-#> covariance came from the REML refit; the distributions stayed normal, because
-#> the model has no dispersion parameter or random effects. Intervals were
-#> computed at the 95% level, and p-values were adjusted for the false discovery
-#> rate (Benjamini & Hochberg 1995) within each response, null model and estimate,
-#> across contrast sets. Random numbers were generated with seed 1.
+#> covariance came from the REML refit and the distributions were t, with the
+#> degrees of freedom given by the replication of the experimental units (16).
+#> Intervals were computed at the 95% level, and p-values were adjusted for the
+#> false discovery rate (Benjamini & Hochberg 1995) within each response, null
+#> model and estimate, across contrast sets. Random numbers were generated with
+#> seed 1.
 #> 
 #> Interactions were classified with the directional scheme of Piggott et al.
 #> (2015): each single, combined and interaction effect was coded as positive,
@@ -172,7 +173,7 @@ report
 #>   Random effects: automatic: none [random, default]
 #>   Limits of the optimiser: scaled iteration limits [control, default]
 #>   Residual checks with DHARMa: FALSE [residual_checks, set]
-#>   Distribution selected (algae): Poisson (log link) [chosen]
+#>   Distribution selected (algae): negative binomial (NB2, log link) [chosen]
 #> 
 #> estimate_interactions()
 #>   Null models: AD, MU [null_models, set]
@@ -192,14 +193,14 @@ report
 #>   Significance level of the classes: 0.05 [alpha, default]
 #> 
 #> software
-#>   Version of must: 0.2.0 [recorded]
+#>   Version of must: 0.3.0 [recorded]
 #>   Version of R: 4.6.2 [recorded]
 #>   Version of glmmTMB: 1.1.15.2 [recorded]
 #> 
 #> References
 #> 
-#> Amador Crespo, P. (2026). must: Multiple-Stressor Interactions Under
-#>   Alternative Null Models. R package version 0.2.0.
+#> Amador Crespo, P., & Rico, A. (2026). must: Multiple-Stressor Interactions
+#>   Under Alternative Null Models. R package version 0.3.0.
 #>   <https://github.com/pabloamadorc/must>
 #> 
 #> Benjamini, Y., & Hochberg, Y. (1995). Controlling the false discovery rate: A
@@ -273,7 +274,7 @@ report$decisions[, c("decision", "value", "source")]
 #> 10                                                            automatic: none
 #> 11                                                    scaled iteration limits
 #> 12                                                                      FALSE
-#> 13                                                         Poisson (log link)
+#> 13                                          negative binomial (NB2, log link)
 #> 14                                                                     AD, MU
 #> 15                                                                 simulation
 #> 16                                                                       2000
@@ -285,7 +286,7 @@ report$decisions[, c("decision", "value", "source")]
 #> 22                                                                          1
 #> 23                                                                       none
 #> 24                                                                       0.05
-#> 25                                                                      0.2.0
+#> 25                                                                      0.3.0
 #> 26                                                                      4.6.2
 #> 27                                                                   1.1.15.2
 #>      source
@@ -320,9 +321,9 @@ report$decisions[, c("decision", "value", "source")]
 cat(format(report, format = "markdown"), sep = "\n")
 #> The experiment combined 2 stressors, salinity (ambient and high, with ambient as control) and warming (no and yes, with no as control), in a full factorial design (4 treatment combinations), with 5 experimental units (jar) per combination. The design identified one contrast set, a pairwise interaction.
 #> 
-#> The analysis was run with the R package must 0.2.0 (Amador Crespo 2026) in R 4.6.2 (R Core Team 2026). The response (algae) was modelled with a generalized linear model with one mean per treatment combination (a cell-means model), fitted by maximum likelihood with glmmTMB 1.1.15.2 (Brooks et al. 2017). The error distribution was chosen among candidates suited to the values of the response (Poisson (log link) and negative binomial (NB2, log link)): the candidate that converged with a positive-definite Hessian and had the lowest AIC was selected, except that the Poisson was used only if the negative binomial did not converge. The model selected was Poisson (log link). For the inference, the selected model was refitted by restricted maximum likelihood (REML).
+#> The analysis was run with the R package must 0.3.0 (Amador Crespo & Rico 2026) in R 4.6.2 (R Core Team 2026). The response (algae) was modelled with a generalized linear model with one mean per treatment combination (a cell-means model), fitted by maximum likelihood with glmmTMB 1.1.15.2 (Brooks et al. 2017). The error distribution was chosen among candidates suited to the values of the response (Poisson (log link) and negative binomial (NB2, log link)): the candidate that converged with a positive-definite Hessian and had the lowest AIC was selected, except that the Poisson was used only if the negative binomial did not converge. The model selected was negative binomial (NB2, log link). For the inference, the selected model was refitted by restricted maximum likelihood (REML).
 #> 
-#> Each interaction was tested against simple addition (AD) and the multiplicative model (MU). Following Madge Pimentel et al. (2025), each interaction was computed from the means predicted by the model (post-estimation inference), as the deviation of the combination of stressors from the expectation of the null model, as a difference on the scale of the response (AD) and as a difference on the log scale (MU). Uncertainty was obtained from 2,000 draws of the fixed effects from their estimated distribution (Krinsky & Robb 1986), which gave percentile intervals and two-sided p-values. To correct for small samples, the covariance came from the REML refit; the distributions stayed normal, because the model has no dispersion parameter or random effects. Intervals were computed at the 95% level, and p-values were adjusted for the false discovery rate (Benjamini & Hochberg 1995) within each response, null model and estimate, across contrast sets. Random numbers were generated with seed 1.
+#> Each interaction was tested against simple addition (AD) and the multiplicative model (MU). Following Madge Pimentel et al. (2025), each interaction was computed from the means predicted by the model (post-estimation inference), as the deviation of the combination of stressors from the expectation of the null model, as a difference on the scale of the response (AD) and as a difference on the log scale (MU). Uncertainty was obtained from 2,000 draws of the fixed effects from their estimated distribution (Krinsky & Robb 1986), which gave percentile intervals and two-sided p-values. To correct for small samples, the covariance came from the REML refit and the distributions were t, with the degrees of freedom given by the replication of the experimental units (16). Intervals were computed at the 95% level, and p-values were adjusted for the false discovery rate (Benjamini & Hochberg 1995) within each response, null model and estimate, across contrast sets. Random numbers were generated with seed 1.
 #> 
 #> Interactions were classified with the directional scheme of Piggott et al. (2015): each single, combined and interaction effect was coded as positive, negative or not significant from its adjusted p-value (alpha = 0.05), and each net interaction was classed as additive (no deviation detected), as a positive or negative synergism or as a positive or negative antagonism (their Table 1).
 #> 
@@ -340,7 +341,7 @@ cat(format(report, format = "markdown"), sep = "\n")
 #> | `fit_responses()` | Random effects | `random` | automatic: none | automatic | default |
 #> | `fit_responses()` | Limits of the optimiser | `control` | scaled iteration limits | scaled iteration limits | default |
 #> | `fit_responses()` | Residual checks with DHARMa | `residual_checks` | FALSE | TRUE | set |
-#> | `fit_responses()` | Distribution selected (algae) |  | Poisson (log link) |  | chosen |
+#> | `fit_responses()` | Distribution selected (algae) |  | negative binomial (NB2, log link) |  | chosen |
 #> | `estimate_interactions()` | Null models | `null_models` | AD, MU | AD | set |
 #> | `estimate_interactions()` | Inference | `inference` | simulation | simulation | default |
 #> | `estimate_interactions()` | Number of simulation draws | `n_sim` | 2000 | 10000 | set |
@@ -352,13 +353,13 @@ cat(format(report, format = "markdown"), sep = "\n")
 #> | `estimate_interactions()` | Seed of the simulations | `seed` | 1 | drawn at random | set |
 #> | `report_interactions()` | Justification of the null models | `justification` | none | none | default |
 #> | `classify_interactions()` | Significance level of the classes | `alpha` | 0.05 | 0.05 | default |
-#> | software | Version of must |  | 0.2.0 |  | recorded |
+#> | software | Version of must |  | 0.3.0 |  | recorded |
 #> | software | Version of R |  | 4.6.2 |  | recorded |
 #> | software | Version of glmmTMB |  | 1.1.15.2 |  | recorded |
 #> 
 #> **References**
 #> 
-#> Amador Crespo, P. (2026). *must: Multiple-Stressor Interactions Under Alternative Null Models*. R package version 0.2.0. <https://github.com/pabloamadorc/must>
+#> Amador Crespo, P., & Rico, A. (2026). *must: Multiple-Stressor Interactions Under Alternative Null Models*. R package version 0.3.0. <https://github.com/pabloamadorc/must>
 #> 
 #> Benjamini, Y., & Hochberg, Y. (1995). Controlling the false discovery rate: A practical and powerful approach to multiple testing. *Journal of the Royal Statistical Society: Series B*, 57(1), 289–300. <https://doi.org/10.1111/j.2517-6161.1995.tb02031.x>
 #> 

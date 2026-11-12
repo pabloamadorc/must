@@ -17,7 +17,7 @@ models are tested afterwards from its predictions
 
     <a class="navbar-brand me-2" href="../index.html">must</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.2.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -44,7 +44,7 @@ models are tested afterwards from its predictions
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
       <img src="../logo.png" class="logo" alt=""><h1>Fit a GLMM to each response, choosing its error distribution</h1>
-      <small class="dont-index">Source: <a href="https://github.com/pabloamadorc/must/blob/v0.2.0/R/fit.R" class="external-link"><code>R/fit.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/pabloamadorc/must/blob/main/R/fit.R" class="external-link"><code>R/fit.R</code></a></small>
       <div class="d-none name"><code>fit_responses.Rd</code></div>
     </div>
 
@@ -340,18 +340,15 @@ and Evolution</em>, 15, e71959. <a href="https://doi.org/10.1002/ece3.71959" cla
 <span class="r-in"><span><span class="va">fits</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> &lt;must_fit&gt; 2 response(s); time structure: interaction; dispersion: common; random effects: none</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Residual checks: not run; seed: 1</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   algae: poisson (log link; count, detected), AIC 112.2, n = 20, missing = 0, residual checks: not run</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   algae: nbinom2 (log link; count, detected), AIC 114.2, n = 20, missing = 0, residual checks: not run</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   survivors: binomial (logit link; binomial, trials), AIC 71.4, n = 20, missing = 0, residual checks: not run</span>
 <span class="r-in"><span><span class="va">fits</span><span class="op">$</span><span class="va">fits</span><span class="op">$</span><span class="va">algae</span><span class="op">$</span><span class="va">selection</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>    family link random converged      aic p_uniformity p_dispersion</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 1 poisson  log   none      TRUE 112.2431           NA           NA</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2 nbinom2  log   none     FALSE       NA           NA           NA</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   p_zero_inflation n_tests_passed residuals_ok selected</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1               NA             NA           NA     TRUE</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2               NA             NA           NA    FALSE</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>                                                                                               message</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1                                                                                                    </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2 Model convergence problem; false convergence (8). See vignette('troubleshooting'), help('diagnose')</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2 nbinom2  log   none      TRUE 114.2431           NA           NA</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   p_zero_inflation n_tests_passed residuals_ok selected message</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1               NA             NA           NA    FALSE        </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2               NA             NA           NA     TRUE        </span>
 </code></pre></div>
     </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
@@ -359,7 +356,7 @@ and Evolution</em>, 15, e71959. <a href="https://doi.org/10.1002/ece3.71959" cla
 
 
     <footer><div class="pkgdown-footer-left">
-  <p>Developed by Pablo Amador Crespo.</p>
+  <p>Developed by Pablo Amador Crespo, Andreu Rico.</p>
 </div>
 
 <div class="pkgdown-footer-right">

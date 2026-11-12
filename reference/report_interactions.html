@@ -21,7 +21,7 @@ run."><meta property="og:image" content="https://pabloamadorc.github.io/must/log
 
     <a class="navbar-brand me-2" href="../index.html">must</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.2.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -48,7 +48,7 @@ run."><meta property="og:image" content="https://pabloamadorc.github.io/must/log
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
       <img src="../logo.png" class="logo" alt=""><h1>Report the methods and the decisions of an analysis</h1>
-      <small class="dont-index">Source: <a href="https://github.com/pabloamadorc/must/blob/v0.2.0/R/report.R" class="external-link"><code>R/report.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/pabloamadorc/must/blob/main/R/report.R" class="external-link"><code>R/report.R</code></a></small>
       <div class="d-none name"><code>report_interactions.Rd</code></div>
     </div>
 
@@ -162,17 +162,17 @@ the models, and the report then says less.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> design (4 treatment combinations), with 5 experimental units (jar) per</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> combination. The design identified one contrast set, a pairwise interaction.</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> The analysis was run with the R package must 0.2.0 (Amador Crespo 2026) in R</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 4.6.2 (R Core Team 2026). The response (algae) was modelled with a generalized</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> linear model with one mean per treatment combination (a cell-means model),</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> fitted by maximum likelihood with glmmTMB 1.1.15.2 (Brooks et al. 2017). The</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> error distribution was chosen among candidates suited to the values of the</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> response (Poisson (log link) and negative binomial (NB2, log link)): the</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> The analysis was run with the R package must 0.3.0 (Amador Crespo &amp; Rico 2026)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> in R 4.6.2 (R Core Team 2026). The response (algae) was modelled with a</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> generalized linear model with one mean per treatment combination (a cell-means</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> model), fitted by maximum likelihood with glmmTMB 1.1.15.2 (Brooks et al.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2017). The error distribution was chosen among candidates suited to the values</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> of the response (Poisson (log link) and negative binomial (NB2, log link)): the</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> candidate that converged with a positive-definite Hessian and had the lowest</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> AIC was selected, except that the Poisson was used only if the negative</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> binomial did not converge. The model selected was Poisson (log link). For the</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> inference, the selected model was refitted by restricted maximum likelihood</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> (REML).</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> binomial did not converge. The model selected was negative binomial (NB2, log</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> link). For the inference, the selected model was refitted by restricted maximum</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> likelihood (REML).</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Each interaction was tested against simple addition (AD) and the multiplicative</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> model (MU). Following Madge Pimentel et al. (2025), each interaction was</span>
@@ -182,11 +182,12 @@ the models, and the report then says less.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> the log scale (MU). Uncertainty was obtained from 2,000 draws of the fixed</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> effects from their estimated distribution (Krinsky &amp; Robb 1986), which gave</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> percentile intervals and two-sided p-values. To correct for small samples, the</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> covariance came from the REML refit; the distributions stayed normal, because</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> the model has no dispersion parameter or random effects. Intervals were</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> computed at the 95% level, and p-values were adjusted for the false discovery</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> rate (Benjamini &amp; Hochberg 1995) within each response, null model and estimate,</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> across contrast sets. Random numbers were generated with seed 1.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> covariance came from the REML refit and the distributions were t, with the</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> degrees of freedom given by the replication of the experimental units (16).</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Intervals were computed at the 95% level, and p-values were adjusted for the</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> false discovery rate (Benjamini &amp; Hochberg 1995) within each response, null</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> model and estimate, across contrast sets. Random numbers were generated with</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> seed 1.</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Interactions were classified with the directional scheme of Piggott et al.</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> (2015): each single, combined and interaction effect was coded as positive,</span>
@@ -213,7 +214,7 @@ the models, and the report then says less.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Random effects: automatic: none [random, default]</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Limits of the optimiser: scaled iteration limits [control, default]</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Residual checks with DHARMa: FALSE [residual_checks, set]</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   Distribution selected (algae): Poisson (log link) [chosen]</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Distribution selected (algae): negative binomial (NB2, log link) [chosen]</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> estimate_interactions()</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Null models: AD, MU [null_models, set]</span>
@@ -233,14 +234,14 @@ the models, and the report then says less.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Significance level of the classes: 0.05 [alpha, default]</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> software</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   Version of must: 0.2.0 [recorded]</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Version of must: 0.3.0 [recorded]</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Version of R: 4.6.2 [recorded]</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Version of glmmTMB: 1.1.15.2 [recorded]</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> References</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Amador Crespo, P. (2026). must: Multiple-Stressor Interactions Under</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   Alternative Null Models. R package version 0.2.0.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Amador Crespo, P., &amp; Rico, A. (2026). must: Multiple-Stressor Interactions</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Under Alternative Null Models. R package version 0.3.0.</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   &lt;https://github.com/pabloamadorc/must&gt;</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Benjamini, Y., &amp; Hochberg, Y. (1995). Controlling the false discovery rate: A</span>
@@ -314,7 +315,7 @@ the models, and the report then says less.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 10                                                            automatic: none</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 11                                                    scaled iteration limits</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 12                                                                      FALSE</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 13                                                         Poisson (log link)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 13                                          negative binomial (NB2, log link)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 14                                                                     AD, MU</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 15                                                                 simulation</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 16                                                                       2000</span>
@@ -326,7 +327,7 @@ the models, and the report then says less.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 22                                                                          1</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 23                                                                       none</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 24                                                                       0.05</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 25                                                                      0.2.0</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 25                                                                      0.3.0</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 26                                                                      4.6.2</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 27                                                                   1.1.15.2</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>      source</span>
@@ -361,9 +362,9 @@ the models, and the report then says less.</p>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/format.html" class="external-link">format</a></span><span class="op">(</span><span class="va">report</span>, format <span class="op">=</span> <span class="st">"markdown"</span><span class="op">)</span>, sep <span class="op">=</span> <span class="st">"\n"</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> The experiment combined 2 stressors, salinity (ambient and high, with ambient as control) and warming (no and yes, with no as control), in a full factorial design (4 treatment combinations), with 5 experimental units (jar) per combination. The design identified one contrast set, a pairwise interaction.</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> The analysis was run with the R package must 0.2.0 (Amador Crespo 2026) in R 4.6.2 (R Core Team 2026). The response (algae) was modelled with a generalized linear model with one mean per treatment combination (a cell-means model), fitted by maximum likelihood with glmmTMB 1.1.15.2 (Brooks et al. 2017). The error distribution was chosen among candidates suited to the values of the response (Poisson (log link) and negative binomial (NB2, log link)): the candidate that converged with a positive-definite Hessian and had the lowest AIC was selected, except that the Poisson was used only if the negative binomial did not converge. The model selected was Poisson (log link). For the inference, the selected model was refitted by restricted maximum likelihood (REML).</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> The analysis was run with the R package must 0.3.0 (Amador Crespo &amp; Rico 2026) in R 4.6.2 (R Core Team 2026). The response (algae) was modelled with a generalized linear model with one mean per treatment combination (a cell-means model), fitted by maximum likelihood with glmmTMB 1.1.15.2 (Brooks et al. 2017). The error distribution was chosen among candidates suited to the values of the response (Poisson (log link) and negative binomial (NB2, log link)): the candidate that converged with a positive-definite Hessian and had the lowest AIC was selected, except that the Poisson was used only if the negative binomial did not converge. The model selected was negative binomial (NB2, log link). For the inference, the selected model was refitted by restricted maximum likelihood (REML).</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Each interaction was tested against simple addition (AD) and the multiplicative model (MU). Following Madge Pimentel et al. (2025), each interaction was computed from the means predicted by the model (post-estimation inference), as the deviation of the combination of stressors from the expectation of the null model, as a difference on the scale of the response (AD) and as a difference on the log scale (MU). Uncertainty was obtained from 2,000 draws of the fixed effects from their estimated distribution (Krinsky &amp; Robb 1986), which gave percentile intervals and two-sided p-values. To correct for small samples, the covariance came from the REML refit; the distributions stayed normal, because the model has no dispersion parameter or random effects. Intervals were computed at the 95% level, and p-values were adjusted for the false discovery rate (Benjamini &amp; Hochberg 1995) within each response, null model and estimate, across contrast sets. Random numbers were generated with seed 1.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Each interaction was tested against simple addition (AD) and the multiplicative model (MU). Following Madge Pimentel et al. (2025), each interaction was computed from the means predicted by the model (post-estimation inference), as the deviation of the combination of stressors from the expectation of the null model, as a difference on the scale of the response (AD) and as a difference on the log scale (MU). Uncertainty was obtained from 2,000 draws of the fixed effects from their estimated distribution (Krinsky &amp; Robb 1986), which gave percentile intervals and two-sided p-values. To correct for small samples, the covariance came from the REML refit and the distributions were t, with the degrees of freedom given by the replication of the experimental units (16). Intervals were computed at the 95% level, and p-values were adjusted for the false discovery rate (Benjamini &amp; Hochberg 1995) within each response, null model and estimate, across contrast sets. Random numbers were generated with seed 1.</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Interactions were classified with the directional scheme of Piggott et al. (2015): each single, combined and interaction effect was coded as positive, negative or not significant from its adjusted p-value (alpha = 0.05), and each net interaction was classed as additive (no deviation detected), as a positive or negative synergism or as a positive or negative antagonism (their Table 1).</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
@@ -381,7 +382,7 @@ the models, and the report then says less.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> | `fit_responses()` | Random effects | `random` | automatic: none | automatic | default |</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> | `fit_responses()` | Limits of the optimiser | `control` | scaled iteration limits | scaled iteration limits | default |</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> | `fit_responses()` | Residual checks with DHARMa | `residual_checks` | FALSE | TRUE | set |</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> | `fit_responses()` | Distribution selected (algae) |  | Poisson (log link) |  | chosen |</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> | `fit_responses()` | Distribution selected (algae) |  | negative binomial (NB2, log link) |  | chosen |</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> | `estimate_interactions()` | Null models | `null_models` | AD, MU | AD | set |</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> | `estimate_interactions()` | Inference | `inference` | simulation | simulation | default |</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> | `estimate_interactions()` | Number of simulation draws | `n_sim` | 2000 | 10000 | set |</span>
@@ -393,13 +394,13 @@ the models, and the report then says less.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> | `estimate_interactions()` | Seed of the simulations | `seed` | 1 | drawn at random | set |</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> | `report_interactions()` | Justification of the null models | `justification` | none | none | default |</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> | `classify_interactions()` | Significance level of the classes | `alpha` | 0.05 | 0.05 | default |</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> | software | Version of must |  | 0.2.0 |  | recorded |</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> | software | Version of must |  | 0.3.0 |  | recorded |</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> | software | Version of R |  | 4.6.2 |  | recorded |</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> | software | Version of glmmTMB |  | 1.1.15.2 |  | recorded |</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> **References**</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Amador Crespo, P. (2026). *must: Multiple-Stressor Interactions Under Alternative Null Models*. R package version 0.2.0. &lt;https://github.com/pabloamadorc/must&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Amador Crespo, P., &amp; Rico, A. (2026). *must: Multiple-Stressor Interactions Under Alternative Null Models*. R package version 0.3.0. &lt;https://github.com/pabloamadorc/must&gt;</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Benjamini, Y., &amp; Hochberg, Y. (1995). Controlling the false discovery rate: A practical and powerful approach to multiple testing. *Journal of the Royal Statistical Society: Series B*, 57(1), 289–300. &lt;https://doi.org/10.1111/j.2517-6161.1995.tb02031.x&gt;</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
@@ -420,7 +421,7 @@ the models, and the report then says less.</p>
 
 
     <footer><div class="pkgdown-footer-left">
-  <p>Developed by Pablo Amador Crespo.</p>
+  <p>Developed by Pablo Amador Crespo, Andreu Rico.</p>
 </div>
 
 <div class="pkgdown-footer-right">

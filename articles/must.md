@@ -421,14 +421,37 @@ cls[cls$response == "total_density" & cls$time == "7" & cls$null_model == "AD",
 
 With the correction for small samples and the adjustment for multiple
 tests, no interaction of this experiment deviates clearly from the null
-models.
+models. [`plot()`](https://rdrr.io/r/graphics/plot.default.html) shows
+how each interaction arises: the effect of each stressor alone, the
+combined effect expected under the null model (the observed combined
+effect minus the net interaction), the combined effect observed and the
+interaction, with its class at the right. On day 7, under AD, the first
+null model:
 
 ``` r
 
-plot(est, response = "total_density", null_model = "MU")
+plot(est, response = "total_density", time = "7")
 ```
 
 ![](must_files/figure-html/example-plot-1.png)
+
+Filled points have an adjusted p-value below 0.05. The intervals are not
+adjusted for the number of sets and times, so an interval can exclude
+zero while its adjusted p-value stays above 0.05, as for the insecticide
+and nutrients here. `type = "models"` draws the same interactions under
+each null model, as deviations relative to the reference cell, a
+quantity the null models share, with the class under each:
+
+``` r
+
+plot(est, response = "total_density", type = "models", time = "7")
+```
+
+![](must_files/figure-html/example-plot-models-1.png)
+
+`type = "interactions"` draws the interactions alone, one row each,
+which suits many sets and times (`group_by` writes what they share as
+headers), and `type = "time"` follows each set over the sampling times.
 
 ### 6. Methods and decisions
 
@@ -448,7 +471,7 @@ report <- report_interactions(est, classes = cls)
 cat(report$methods, sep = "\n\n")
 #> The experiment combined 3 stressors, insecticide (absent and chlorpyrifos, with absent as control), herbicide (absent and diuron, with absent as control) and nutrients (ambient and added, with ambient as control), in a full factorial design (8 treatment combinations), with 3 experimental units (mesocosm) per combination, sampled at 4 times (day 7, 14, 30 and 50). The design identified 4 contrast sets: 3 pairwise interactions and 1 three-way interaction, with the stressors outside each set at their control.
 #> 
-#> The analysis was run with the R package must 0.2.0 (Amador Crespo 2026) in R 4.6.2 (R Core Team 2026). Each response (total_density, cyclopoida and daphnia) was modelled with a generalized linear mixed model with one mean per treatment combination and sampling time (a cell-means model) and a random intercept for each mesocosm, fitted by maximum likelihood with glmmTMB 1.1.15.2 (Brooks et al. 2017). The error distribution was chosen among candidates suited to the values of each response (Gaussian (identity link), Gaussian (log link), Gamma (log link) and lognormal (log link), for total_density; Gaussian (identity link), Gaussian (log link) and Tweedie (log link), for cyclopoida and daphnia): the candidate that converged with a positive-definite Hessian and had the lowest AIC was selected. The models selected were Gamma (log link) for total_density; Tweedie (log link) for cyclopoida and daphnia. The means of the treatment combinations with only zeros (6 for daphnia) were fixed at the boundary of the link function; a contrast that compares such a combination with its expectation was tested from the probability of observing only zeros under that expectation, and contrasts that need such a combination to compute it were not estimated. For the inference, the selected models were refitted by restricted maximum likelihood (REML).
+#> The analysis was run with the R package must 0.3.0 (Amador Crespo & Rico 2026) in R 4.6.2 (R Core Team 2026). Each response (total_density, cyclopoida and daphnia) was modelled with a generalized linear mixed model with one mean per treatment combination and sampling time (a cell-means model) and a random intercept for each mesocosm, fitted by maximum likelihood with glmmTMB 1.1.15.2 (Brooks et al. 2017). The error distribution was chosen among candidates suited to the values of each response (Gaussian (identity link), Gaussian (log link), Gamma (log link) and lognormal (log link), for total_density; Gaussian (identity link), Gaussian (log link) and Tweedie (log link), for cyclopoida and daphnia): the candidate that converged with a positive-definite Hessian and had the lowest AIC was selected. The models selected were Gamma (log link) for total_density; Tweedie (log link) for cyclopoida and daphnia. The means of the treatment combinations with only zeros (6 for daphnia) were fixed at the boundary of the link function; a contrast that compares such a combination with its expectation was tested from the probability of observing only zeros under that expectation, and contrasts that need such a combination to compute it were not estimated. For the inference, the selected models were refitted by restricted maximum likelihood (REML).
 #> 
 #> Each interaction was tested against simple addition (AD), the multiplicative model (MU) and dominance (DO). The null models were chosen with the guidelines of Schäfer & Piggott (2018), in which must adds two conditions: concentration addition requires that the stressors alone act in the same direction, and stress addition that none of them increases the response. The authors stated that the stressors do not act similarly, one of them acts specifically on physiology, the effect is not mortality and the stressor-effect relationships are not known. They did not state whether the distribution of sensitivities is known or how the sensitivities are correlated. The criteria that depend on the effects of the stressors alone (whether one effect reaches 90% of the effect limit, whether their sum exceeds the limit, whether a stressor alone increases the response and whether two act in opposite directions) were evaluated from the effects estimated by the models in each contrast set and sampling time, with 95% intervals; a criterion was not known when the interval spanned its threshold. Each criterion that was not known (or that differed among contrast sets) took each of its values, and every null model reached was kept.
 #> 

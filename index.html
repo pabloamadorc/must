@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="index.html">must</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.2.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -73,7 +73,7 @@
 <p><code><a href="reference/report_interactions.html">report_interactions()</a></code> then writes the methods of the analysis, with the works cited, and a table of every decision behind it, from the settings of the objects.</p>
 <p>Orr et al. (2020) name the use of null models as a major unresolved issue in multiple-stressor research and ask researchers to know the alternatives and how each relates to a statistical test; must is built to report them side by side.</p>
 <blockquote>
-<p><strong>Status:</strong> version 0.2.0, not yet on CRAN. The interface may still change.</p>
+<p><strong>Status:</strong> version 0.3.0, not yet on CRAN. The interface may still change.</p>
 </blockquote>
 <p>The website, <a href="https://pabloamadorc.github.io/must/" class="uri">https://pabloamadorc.github.io/must/</a>, has the help pages, the vignettes and the case studies.</p>
 <div class="section level2">
@@ -195,9 +195,12 @@
 <span><span class="co">#&gt; 1      net    -1610 -3020  -650 Inf  0.0025       0.02</span></span>
 <span><span class="co">#&gt; 2     pure      654  -647  2210 Inf  0.3100       0.42</span></span></code></pre></div>
 <p>On day 7 the three-stressor combination falls below the sum of the single effects (<code>net</code>), but its pure third-order interaction does not differ from zero: the net deviation comes mainly from the pairwise interactions (net = pure + the three pairwise interactions), so it is not, by itself, evidence of a three-way interaction. With 24 mesocosms in 8 treatment combinations the correction uses a t distribution with 16 degrees of freedom: the intervals widen and, once adjusted across the sets and sampling times, the net deviation is no longer significant, whereas the asymptotic procedure would call it significant. (The estimates differ slightly because, with random effects, the corrected ones come from the REML refit.)</p>
+<p><code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> shows how an interaction arises: the effect of each stressor alone, the combined effect that the null model expects from them, the combined effect observed and the interaction, which is the difference between the last two, with its class (see below). The three-stressor set on day 7, under AD:</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">est</span>, response <span class="op">=</span> <span class="st">"total_density"</span>, null_model <span class="op">=</span> <span class="st">"MU"</span>, time <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"7"</span>, <span class="st">"overall"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="va">trio</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/unique.html" class="external-link">unique</a></span><span class="op">(</span><span class="va">est</span><span class="op">$</span><span class="va">estimates</span><span class="op">$</span><span class="va">set_id</span><span class="op">[</span><span class="va">est</span><span class="op">$</span><span class="va">estimates</span><span class="op">$</span><span class="va">order</span> <span class="op">==</span> <span class="fl">3L</span><span class="op">]</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">est</span>, response <span class="op">=</span> <span class="st">"total_density"</span>, time <span class="op">=</span> <span class="st">"7"</span>, set_id <span class="op">=</span> <span class="va">trio</span><span class="op">)</span></span></code></pre></div>
 <p><img src="reference/figures/README-plot-1.png"><!-- --></p>
+<p><code>type = "models"</code> puts the null models side by side, <code>type = "interactions"</code> gives an overview of every set and time, and <code>type = "time"</code> follows a set over the sampling times (see <code><a href="reference/plot.must_interactions.html">?plot.must_interactions</a></code>).</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">cls</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/classify_interactions.html">classify_interactions</a></span><span class="op">(</span><span class="va">est</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/table.html" class="external-link">table</a></span><span class="op">(</span><span class="va">cls</span><span class="op">$</span><span class="va">response</span>, <span class="va">cls</span><span class="op">$</span><span class="va">class</span>, useNA <span class="op">=</span> <span class="st">"ifany"</span><span class="op">)</span></span>
@@ -211,20 +214,20 @@
 <div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">report</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/report_interactions.html">report_interactions</a></span><span class="op">(</span><span class="va">est</span>, classes <span class="op">=</span> <span class="va">cls</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/strwrap.html" class="external-link">strwrap</a></span><span class="op">(</span><span class="va">report</span><span class="op">$</span><span class="va">methods</span><span class="op">[[</span><span class="fl">2</span><span class="op">]</span><span class="op">]</span>, width <span class="op">=</span> <span class="fl">100</span><span class="op">)</span>, sep <span class="op">=</span> <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; The analysis was run with the R package must 0.2.0 (Amador Crespo 2026) in R 4.3.3 (R Core Team</span></span>
-<span><span class="co">#&gt; 2024). Each response (total_density, cyclopoida and daphnia) was modelled with a generalized linear</span></span>
-<span><span class="co">#&gt; mixed model with one mean per treatment combination and sampling time (a cell-means model) and a</span></span>
-<span><span class="co">#&gt; random intercept for each mesocosm, fitted by maximum likelihood with glmmTMB 1.1.8 (Brooks et al.</span></span>
-<span><span class="co">#&gt; 2017). The error distribution was chosen among candidates suited to the values of each response</span></span>
-<span><span class="co">#&gt; (Gaussian (identity link), Gaussian (log link), Gamma (log link) and lognormal (log link), for</span></span>
-<span><span class="co">#&gt; total_density; Gaussian (identity link), Gaussian (log link) and Tweedie (log link), for cyclopoida</span></span>
-<span><span class="co">#&gt; and daphnia): the candidate that converged with a positive-definite Hessian and had the lowest AIC</span></span>
-<span><span class="co">#&gt; was selected. The models selected were Gamma (log link) for total_density; Tweedie (log link) for</span></span>
-<span><span class="co">#&gt; cyclopoida and daphnia. The means of the treatment combinations with only zeros (6 for daphnia)</span></span>
-<span><span class="co">#&gt; were fixed at the boundary of the link function; a contrast that compares such a combination with</span></span>
-<span><span class="co">#&gt; its expectation was tested from the probability of observing only zeros under that expectation, and</span></span>
-<span><span class="co">#&gt; contrasts that need such a combination to compute it were not estimated. For the inference, the</span></span>
-<span><span class="co">#&gt; selected models were refitted by restricted maximum likelihood (REML).</span></span></code></pre></div>
+<span><span class="co">#&gt; The analysis was run with the R package must 0.3.0 (Amador Crespo &amp; Rico 2026) in R 4.3.3 (R Core</span></span>
+<span><span class="co">#&gt; Team 2024). Each response (total_density, cyclopoida and daphnia) was modelled with a generalized</span></span>
+<span><span class="co">#&gt; linear mixed model with one mean per treatment combination and sampling time (a cell-means model)</span></span>
+<span><span class="co">#&gt; and a random intercept for each mesocosm, fitted by maximum likelihood with glmmTMB 1.1.8 (Brooks</span></span>
+<span><span class="co">#&gt; et al. 2017). The error distribution was chosen among candidates suited to the values of each</span></span>
+<span><span class="co">#&gt; response (Gaussian (identity link), Gaussian (log link), Gamma (log link) and lognormal (log link),</span></span>
+<span><span class="co">#&gt; for total_density; Gaussian (identity link), Gaussian (log link) and Tweedie (log link), for</span></span>
+<span><span class="co">#&gt; cyclopoida and daphnia): the candidate that converged with a positive-definite Hessian and had the</span></span>
+<span><span class="co">#&gt; lowest AIC was selected. The models selected were Gamma (log link) for total_density; Tweedie (log</span></span>
+<span><span class="co">#&gt; link) for cyclopoida and daphnia. The means of the treatment combinations with only zeros (6 for</span></span>
+<span><span class="co">#&gt; daphnia) were fixed at the boundary of the link function; a contrast that compares such a</span></span>
+<span><span class="co">#&gt; combination with its expectation was tested from the probability of observing only zeros under that</span></span>
+<span><span class="co">#&gt; expectation, and contrasts that need such a combination to compute it were not estimated. For the</span></span>
+<span><span class="co">#&gt; inference, the selected models were refitted by restricted maximum likelihood (REML).</span></span></code></pre></div>
 <p><code>report$decisions</code> lists every decision with its argument, the value used, its default and its source, and <code>format(report, format = "markdown")</code> gives the paragraphs, the table and the references for an R Markdown or Quarto document.</p>
 </div>
 <div class="section level2">
@@ -353,6 +356,7 @@
 <h2 data-toc-skip>Developers</h2>
 <ul class="list-unstyled">
 <li>Pablo Amador Crespo <br><small class="roles"> Author, maintainer </small> <a href="https://orcid.org/0000-0002-3793-8794" target="orcid.widget" aria-label="ORCID" class="external-link"><span class="fab fa-orcid orcid" aria-hidden="true"></span></a>  </li>
+<li>Andreu Rico <br><small class="roles"> Author </small> <a href="https://orcid.org/0000-0002-1820-4218" target="orcid.widget" aria-label="ORCID" class="external-link"><span class="fab fa-orcid orcid" aria-hidden="true"></span></a>  </li>
 </ul>
 </div>
 
@@ -368,7 +372,7 @@
 
 
     <footer><div class="pkgdown-footer-left">
-  <p>Developed by Pablo Amador Crespo.</p>
+  <p>Developed by Pablo Amador Crespo, Andreu Rico.</p>
 </div>
 
 <div class="pkgdown-footer-right">

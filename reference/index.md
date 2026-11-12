@@ -15,8 +15,9 @@ interactions, compare the null models and report the methods.
 - [`estimate_interactions()`](https://pabloamadorc.github.io/must/reference/estimate_interactions.md)
   : Estimate single, combined and interaction effects under null models
 - [`summary(`*`<must_interactions>`*`)`](https://pabloamadorc.github.io/must/reference/must_interactions-methods.md)
-  [`plot(`*`<must_interactions>`*`)`](https://pabloamadorc.github.io/must/reference/must_interactions-methods.md)
-  : Summarise and plot estimated interactions
+  : Summarise estimated interactions
+- [`plot(`*`<must_interactions>`*`)`](https://pabloamadorc.github.io/must/reference/plot.must_interactions.md)
+  : Plot estimated interactions
 - [`classify_interactions()`](https://pabloamadorc.github.io/must/reference/classify_interactions.md)
   : Classify interactions (Piggott et al. 2015)
 - [`compare_null_models()`](https://pabloamadorc.github.io/must/reference/compare_null_models.md)

@@ -236,6 +236,20 @@ phyto_classes[phyto_classes$time == "overall" & phyto_classes$null_model != "DO"
 #> 47 insecticide +; herbicide +; nutrients 0                0    AD
 ```
 
+[`plot()`](https://rdrr.io/r/graphics/plot.default.html) with
+`type = "models"` draws them under each null model, as deviations
+relative to the control; here the three pairs averaged over the
+samplings (the three stressors together, whose bloom dwarfs them, are
+left out):
+
+``` r
+
+pairs <- unique(e$set_id[e$order == 2L])
+plot(phyto_est, type = "models", time = "overall", set_id = pairs)
+```
+
+![](mesocosms_files/figure-html/phyto-models-1.png)
+
 The mean densities explain them:
 
 ``` r
@@ -511,13 +525,6 @@ summary(zoo_est)
 #>  total_density      net 0/0/0/2 0/0/0/2 0/0/0/2 0/0/0/2 0/0/0/2 0/0/0/2 0/0/0/2
 #> 
 #> Counts of boundary tests and of rows not estimated: `$interactions`; classes: `$classes`.
-plot(zoo_est, null_model = "MU")
-```
-
-![](mesocosms_files/figure-html/zoo-interactions-1.png)
-
-``` r
-
 rel <- e[e$component == "interaction" & e$null_model == "MU" & e$time != "overall",
          c("time", "levels", "relative", "relative_lower", "relative_upper")]
 rel$levels <- sub(".*temperature=", "", rel$levels)
@@ -544,6 +551,19 @@ deviations under MU, (observed − expected) / reference, have intervals
 far wider than ±0.5. With four mesocosms per combination and densities
 this variable, the experiment cannot tell additivity from interactions
 as large as the effects of the stressors themselves.
+
+With `type = "time"`,
+[`plot()`](https://rdrr.io/r/graphics/plot.default.html) follows each
+set over the samplings: the effects of each stressor alone and the
+expected and observed combined effects (top), and the interaction with
+its class (bottom), here under MU:
+
+``` r
+
+plot(zoo_est, type = "time", null_model = "MU")
+```
+
+![](mesocosms_files/figure-html/zoo-time-1.png)![](mesocosms_files/figure-html/zoo-time-2.png)
 
 ### Chironomids
 
@@ -696,7 +716,7 @@ zoo_report <- report_interactions(zoo_est, classes = classify_interactions(zoo_e
 cat(zoo_report$methods, sep = "\n\n")
 #> The experiment combined 2 stressors, imidacloprid (absent and applied, with absent as control) and temperature (ambient, elevated and heatwaves, with ambient as control), in a full factorial design (6 treatment combinations), with 4 experimental units (mesocosm) per combination, sampled at 7 times (day -1, 10, 24, 38, 52, 66 and 80). The sampling before the stressors were applied (day -1) was not tested. The design identified 2 contrast sets: 2 pairwise interactions.
 #> 
-#> The analysis was run with the R package must 0.2.0 (Amador Crespo 2026) in R 4.6.2 (R Core Team 2026). The response (total_density) was modelled with a generalized linear mixed model with one mean per treatment combination and sampling time (a cell-means model) and a random intercept for each mesocosm, fitted by maximum likelihood with glmmTMB 1.1.15.2 (Brooks et al. 2017). The error distribution was chosen among candidates suited to the values of the response (Gaussian (identity link), Gaussian (log link), Gamma (log link) and lognormal (log link)): the candidate that converged with a positive-definite Hessian and had the lowest AIC was selected. The model selected was Gamma (log link). For the inference, the selected model was refitted by restricted maximum likelihood (REML).
+#> The analysis was run with the R package must 0.3.0 (Amador Crespo & Rico 2026) in R 4.6.2 (R Core Team 2026). The response (total_density) was modelled with a generalized linear mixed model with one mean per treatment combination and sampling time (a cell-means model) and a random intercept for each mesocosm, fitted by maximum likelihood with glmmTMB 1.1.15.2 (Brooks et al. 2017). The error distribution was chosen among candidates suited to the values of the response (Gaussian (identity link), Gaussian (log link), Gamma (log link) and lognormal (log link)): the candidate that converged with a positive-definite Hessian and had the lowest AIC was selected. The model selected was Gamma (log link). For the inference, the selected model was refitted by restricted maximum likelihood (REML).
 #> 
 #> Each interaction was tested against simple addition (AD), the multiplicative model (MU) and dominance (DO). The null models were chosen with the guidelines of Schäfer & Piggott (2018), in which must adds two conditions: concentration addition requires that the stressors alone act in the same direction, and stress addition that none of them increases the response. The authors stated that the stressors do not act similarly, one of them acts specifically on physiology, the effect is not mortality and the stressor-effect relationships are not known. They did not state whether the distribution of sensitivities is known or how the sensitivities are correlated. The criteria that depend on the effects of the stressors alone (whether one effect reaches 90% of the effect limit, whether their sum exceeds the limit, whether a stressor alone increases the response and whether two act in opposite directions) were evaluated from the effects estimated by the models in each contrast set and sampling time, with 95% intervals; a criterion was not known when the interval spanned its threshold. Each criterion that was not known (or that differed among contrast sets) took each of its values, and every null model reached was kept.
 #> 

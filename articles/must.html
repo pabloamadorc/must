@@ -19,7 +19,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">must</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.2.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -59,7 +59,7 @@
       <img src="../logo.png" class="logo" alt=""><h1>Multiple-stressor interactions with must</h1>
             
       
-      <small class="dont-index">Source: <a href="https://github.com/pabloamadorc/must/blob/v0.2.0/vignettes/must.Rmd" class="external-link"><code>vignettes/must.Rmd</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/pabloamadorc/must/blob/main/vignettes/must.Rmd" class="external-link"><code>vignettes/must.Rmd</code></a></small>
       <div class="d-none name"><code>must.Rmd</code></div>
     </div>
 
@@ -466,10 +466,28 @@ samplings.</p>
 <span><span class="co">#&gt; 46 insecticide 0 | herbicide 0 | nutrients 0 | i 0    AD      FALSE</span></span></code></pre></div>
 <p>With the correction for small samples and the adjustment for multiple
 tests, no interaction of this experiment deviates clearly from the null
-models.</p>
+models. <code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> shows how each interaction arises: the
+effect of each stressor alone, the combined effect expected under the
+null model (the observed combined effect minus the net interaction), the
+combined effect observed and the interaction, with its class at the
+right. On day 7, under AD, the first null model:</p>
 <div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">est</span>, response <span class="op">=</span> <span class="st">"total_density"</span>, null_model <span class="op">=</span> <span class="st">"MU"</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">est</span>, response <span class="op">=</span> <span class="st">"total_density"</span>, time <span class="op">=</span> <span class="st">"7"</span><span class="op">)</span></span></code></pre></div>
 <p><img src="must_files/figure-html/example-plot-1.png" class="r-plt" alt="" width="672"></p>
+<p>Filled points have an adjusted p-value below 0.05. The intervals are
+not adjusted for the number of sets and times, so an interval can
+exclude zero while its adjusted p-value stays above 0.05, as for the
+insecticide and nutrients here. <code>type = "models"</code> draws the
+same interactions under each null model, as deviations relative to the
+reference cell, a quantity the null models share, with the class under
+each:</p>
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">est</span>, response <span class="op">=</span> <span class="st">"total_density"</span>, type <span class="op">=</span> <span class="st">"models"</span>, time <span class="op">=</span> <span class="st">"7"</span><span class="op">)</span></span></code></pre></div>
+<p><img src="must_files/figure-html/example-plot-models-1.png" class="r-plt" alt="" width="672"></p>
+<p><code>type = "interactions"</code> draws the interactions alone, one
+row each, which suits many sets and times (<code>group_by</code> writes
+what they share as headers), and <code>type = "time"</code> follows each
+set over the sampling times.</p>
 </div>
 <div class="section level3">
 <h3 id="methods-and-decisions">6. Methods and decisions<a class="anchor" aria-label="anchor" href="#methods-and-decisions"></a>
@@ -482,12 +500,12 @@ behind them, and how the interactions were estimated and tested, with
 the works cited. Every value comes from the objects, so the text matches
 the analysis that was run; the description of the experiment itself
 (organisms, exposure, measurements) is left to the authors.</p>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">report</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/report_interactions.html">report_interactions</a></span><span class="op">(</span><span class="va">est</span>, classes <span class="op">=</span> <span class="va">cls</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="va">report</span><span class="op">$</span><span class="va">methods</span>, sep <span class="op">=</span> <span class="st">"\n\n"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; The experiment combined 3 stressors, insecticide (absent and chlorpyrifos, with absent as control), herbicide (absent and diuron, with absent as control) and nutrients (ambient and added, with ambient as control), in a full factorial design (8 treatment combinations), with 3 experimental units (mesocosm) per combination, sampled at 4 times (day 7, 14, 30 and 50). The design identified 4 contrast sets: 3 pairwise interactions and 1 three-way interaction, with the stressors outside each set at their control.</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; The analysis was run with the R package must 0.2.0 (Amador Crespo 2026) in R 4.6.2 (R Core Team 2026). Each response (total_density, cyclopoida and daphnia) was modelled with a generalized linear mixed model with one mean per treatment combination and sampling time (a cell-means model) and a random intercept for each mesocosm, fitted by maximum likelihood with glmmTMB 1.1.15.2 (Brooks et al. 2017). The error distribution was chosen among candidates suited to the values of each response (Gaussian (identity link), Gaussian (log link), Gamma (log link) and lognormal (log link), for total_density; Gaussian (identity link), Gaussian (log link) and Tweedie (log link), for cyclopoida and daphnia): the candidate that converged with a positive-definite Hessian and had the lowest AIC was selected. The models selected were Gamma (log link) for total_density; Tweedie (log link) for cyclopoida and daphnia. The means of the treatment combinations with only zeros (6 for daphnia) were fixed at the boundary of the link function; a contrast that compares such a combination with its expectation was tested from the probability of observing only zeros under that expectation, and contrasts that need such a combination to compute it were not estimated. For the inference, the selected models were refitted by restricted maximum likelihood (REML).</span></span>
+<span><span class="co">#&gt; The analysis was run with the R package must 0.3.0 (Amador Crespo &amp; Rico 2026) in R 4.6.2 (R Core Team 2026). Each response (total_density, cyclopoida and daphnia) was modelled with a generalized linear mixed model with one mean per treatment combination and sampling time (a cell-means model) and a random intercept for each mesocosm, fitted by maximum likelihood with glmmTMB 1.1.15.2 (Brooks et al. 2017). The error distribution was chosen among candidates suited to the values of each response (Gaussian (identity link), Gaussian (log link), Gamma (log link) and lognormal (log link), for total_density; Gaussian (identity link), Gaussian (log link) and Tweedie (log link), for cyclopoida and daphnia): the candidate that converged with a positive-definite Hessian and had the lowest AIC was selected. The models selected were Gamma (log link) for total_density; Tweedie (log link) for cyclopoida and daphnia. The means of the treatment combinations with only zeros (6 for daphnia) were fixed at the boundary of the link function; a contrast that compares such a combination with its expectation was tested from the probability of observing only zeros under that expectation, and contrasts that need such a combination to compute it were not estimated. For the inference, the selected models were refitted by restricted maximum likelihood (REML).</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Each interaction was tested against simple addition (AD), the multiplicative model (MU) and dominance (DO). The null models were chosen with the guidelines of Schäfer &amp; Piggott (2018), in which must adds two conditions: concentration addition requires that the stressors alone act in the same direction, and stress addition that none of them increases the response. The authors stated that the stressors do not act similarly, one of them acts specifically on physiology, the effect is not mortality and the stressor-effect relationships are not known. They did not state whether the distribution of sensitivities is known or how the sensitivities are correlated. The criteria that depend on the effects of the stressors alone (whether one effect reaches 90% of the effect limit, whether their sum exceeds the limit, whether a stressor alone increases the response and whether two act in opposite directions) were evaluated from the effects estimated by the models in each contrast set and sampling time, with 95% intervals; a criterion was not known when the interval spanned its threshold. Each criterion that was not known (or that differed among contrast sets) took each of its values, and every null model reached was kept.</span></span>
 <span><span class="co">#&gt; </span></span>
@@ -501,7 +519,7 @@ of the guidelines evaluated from the effects), taken from
 <code><a href="../reference/suggest_null_models.html">suggest_null_models()</a></code> or recorded (versions). The decisions
 that differ from the defaults are those a reviewer will look for
 first:</p>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">changed</span> <span class="op">&lt;-</span> <span class="op">!</span><span class="va">report</span><span class="op">$</span><span class="va">decisions</span><span class="op">$</span><span class="va">source</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"default"</span>, <span class="st">"recorded"</span><span class="op">)</span></span>
 <span><span class="va">report</span><span class="op">$</span><span class="va">decisions</span><span class="op">[</span><span class="va">changed</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"decision"</span>, <span class="st">"value"</span>, <span class="st">"source"</span><span class="op">)</span><span class="op">]</span></span>
 <span><span class="co">#&gt;                                                                  decision</span></span>
@@ -588,7 +606,7 @@ the mean (the square root for counts, for example), so it does not
 depend on <code>inference</code>.</p>
 <p>In ten tanks per combination where copepods follow the multiplicative
 model exactly:</p>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">tanks</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/expand.grid.html" class="external-link">expand.grid</a></span><span class="op">(</span>salinity <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"ambient"</span>, <span class="st">"high"</span><span class="op">)</span>, warming <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"no"</span>, <span class="st">"yes"</span><span class="op">)</span>,</span>
 <span>                     replicate <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">10</span>, stringsAsFactors <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
 <span><span class="va">tanks</span><span class="op">$</span><span class="va">tank</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_len</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">tanks</span><span class="op">)</span><span class="op">)</span></span>
@@ -621,7 +639,7 @@ would be <code>"negligible"</code>. With three mesocosms per
 combination, no interaction of the zooplankton experiment is equivalent
 even within ±25% of the control: they are inconclusive, not
 additive.</p>
-<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">eq_zoo</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/estimate_interactions.html">estimate_interactions</a></span><span class="op">(</span><span class="va">fits</span>, null_models <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"AD"</span>, <span class="st">"MU"</span><span class="op">)</span>, n_sim <span class="op">=</span> <span class="fl">4000</span>, seed <span class="op">=</span> <span class="fl">2021</span>,</span>
 <span>                                margin <span class="op">=</span> <span class="fl">0.25</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/table.html" class="external-link">table</a></span><span class="op">(</span><span class="fu"><a href="../reference/classify_interactions.html">classify_interactions</a></span><span class="op">(</span><span class="va">eq_zoo</span><span class="op">)</span><span class="op">$</span><span class="va">verdict</span>, useNA <span class="op">=</span> <span class="st">"ifany"</span><span class="op">)</span></span>
@@ -660,7 +678,7 @@ follow the experimental units (column <code>df</code>). For a Gaussian
 model without random effects the AD intervals of the delta method are
 then exactly those of <code><a href="https://rdrr.io/r/stats/lm.html" class="external-link">lm()</a></code>, and the simulation approximates
 them:</p>
-<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">small</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
 <span>  salinity <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"ambient"</span>, <span class="st">"high"</span>, <span class="st">"ambient"</span>, <span class="st">"high"</span><span class="op">)</span>, each <span class="op">=</span> <span class="fl">3</span><span class="op">)</span>,</span>
 <span>  warming <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"no"</span>, <span class="st">"no"</span>, <span class="st">"yes"</span>, <span class="st">"yes"</span><span class="op">)</span>, each <span class="op">=</span> <span class="fl">3</span><span class="op">)</span>,</span>
@@ -709,7 +727,7 @@ the set at control: the insecticide × herbicide interaction compares
 mesocosms without added nutrients. With <code>background = "all"</code>
 the design also gives the same interaction in the presence of each level
 of the other stressors, with that background as the reference:</p>
-<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">design_all</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/describe_design.html">describe_design</a></span><span class="op">(</span><span class="va">zoo</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"insecticide"</span>, <span class="st">"herbicide"</span>, <span class="st">"nutrients"</span><span class="op">)</span>,</span>
 <span>  control <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>insecticide <span class="op">=</span> <span class="st">"absent"</span>, herbicide <span class="op">=</span> <span class="st">"absent"</span>, nutrients <span class="op">=</span> <span class="st">"ambient"</span><span class="op">)</span>,</span>
 <span>  unit <span class="op">=</span> <span class="st">"mesocosm"</span>, time <span class="op">=</span> <span class="st">"day"</span>, background <span class="op">=</span> <span class="st">"all"</span><span class="op">)</span></span>
@@ -734,7 +752,7 @@ For responses measured the other way, give their names in
 <code>trials</code>, see <code><a href="../reference/fit_responses.html">fit_responses()</a></code>) are then analysed
 as their complement, and for other responses MU and DO are reported as
 <code>not_applicable</code>.</p>
-<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">jars</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
 <span>  copper <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"no"</span>, <span class="st">"yes"</span>, <span class="st">"no"</span>, <span class="st">"yes"</span><span class="op">)</span>, each <span class="op">=</span> <span class="fl">5</span><span class="op">)</span>,</span>
 <span>  heat <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"no"</span>, <span class="st">"no"</span>, <span class="st">"yes"</span>, <span class="st">"yes"</span><span class="op">)</span>, each <span class="op">=</span> <span class="fl">5</span><span class="op">)</span>,</span>
@@ -762,7 +780,7 @@ as their complement, and for other responses MU and DO are reported as
 each stressor alone and their combination. Many experiments are not full
 factorials. In a ray design, for example, two compounds are tested alone
 at three doses and the mixture only at matching doses:</p>
-<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">ray</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
 <span>  fungicide <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">2</span>, <span class="fl">20</span>, <span class="fl">200</span>, <span class="fl">0</span>, <span class="fl">0</span>, <span class="fl">0</span>, <span class="fl">2</span>, <span class="fl">20</span>, <span class="fl">200</span><span class="op">)</span>,</span>
 <span>  insecticide <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">0</span>, <span class="fl">0</span>, <span class="fl">0</span>, <span class="fl">2</span>, <span class="fl">20</span>, <span class="fl">200</span>, <span class="fl">2</span>, <span class="fl">20</span>, <span class="fl">200</span><span class="op">)</span></span>
@@ -811,7 +829,7 @@ upstream and downstream ponds. Copying the control into each group would
 count its units twice. <code>shared</code> marks the rows that belong to
 every group of a <code>by</code> column; here the control tanks
 (<code>regime = "both"</code>) complete the sets of both regimes:</p>
-<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">regimes</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
 <span>  regime <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"both"</span>, <span class="st">"pulse"</span>, <span class="st">"pulse"</span>, <span class="st">"pulse"</span>, <span class="st">"press"</span>, <span class="st">"press"</span>, <span class="st">"press"</span><span class="op">)</span>, each <span class="op">=</span> <span class="fl">4</span><span class="op">)</span>,</span>
 <span>  heat <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"no"</span>, <span class="st">"yes"</span>, <span class="st">"no"</span>, <span class="st">"yes"</span>, <span class="st">"yes"</span>, <span class="st">"no"</span>, <span class="st">"yes"</span><span class="op">)</span>, each <span class="op">=</span> <span class="fl">4</span><span class="op">)</span>,</span>
@@ -848,7 +866,7 @@ the replication of that stressor is the number of groups, not of jars or
 mesocosms. <code>groups</code> tells <code><a href="../reference/describe_design.html">describe_design()</a></code>
 which columns group the units. Here temperature is applied to whole
 rooms and nutrients vary within them:</p>
-<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">rooms</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/expand.grid.html" class="external-link">expand.grid</a></span><span class="op">(</span>temperature <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"15"</span>, <span class="st">"20"</span><span class="op">)</span>, room_rep <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">2</span>,</span>
 <span>                     nutrients <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"no"</span>, <span class="st">"yes"</span><span class="op">)</span>, jar <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">3</span>, stringsAsFactors <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
 <span><span class="va">rooms</span><span class="op">$</span><span class="va">room</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">"R"</span>, <span class="va">rooms</span><span class="op">$</span><span class="va">temperature</span>, <span class="st">"-"</span>, <span class="va">rooms</span><span class="op">$</span><span class="va">room_rep</span><span class="op">)</span></span>
@@ -874,7 +892,7 @@ variance is not identifiable), so none is added. With two rooms per
 temperature the rooms are whole plots: temperature effects are
 replicated by rooms, and <code><a href="../reference/fit_responses.html">fit_responses()</a></code> adds a random
 intercept for them by default.</p>
-<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">two_design</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/describe_design.html">describe_design</a></span><span class="op">(</span></span>
 <span>  <span class="va">rooms</span>,</span>
 <span>  stressors <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"temperature"</span>, <span class="st">"nutrients"</span><span class="op">)</span>,</span>
@@ -900,7 +918,7 @@ third-order interaction is what remains once those are removed, and it
 needs all eight combinations. In this simulated 2 x 2 x 2 experiment the
 pure interaction is negative, but part of the net deviation comes from
 the pairwise terms:</p>
-<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">grid</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/expand.grid.html" class="external-link">expand.grid</a></span><span class="op">(</span>nitrate <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"ambient"</span>, <span class="st">"high"</span><span class="op">)</span>, sediment <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"no"</span>, <span class="st">"yes"</span><span class="op">)</span>,</span>
 <span>                    flow <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"normal"</span>, <span class="st">"low"</span><span class="op">)</span>, stringsAsFactors <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
 <span><span class="va">n</span> <span class="op">&lt;-</span> <span class="va">grid</span><span class="op">$</span><span class="va">nitrate</span> <span class="op">==</span> <span class="st">"high"</span></span>
@@ -945,7 +963,7 @@ net interaction is wABC - wA wB wC, and the emergent interaction of
 Beppler et al. (2016, eq. 2.4), wABC - wA wBC - wB wAC - wC wAB + 2 wA
 wB wC, is the part of the three-way deviation that the pairwise
 interactions do not explain. For the stream channels:</p>
-<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">bliss</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/estimate_interactions.html">estimate_interactions</a></span><span class="op">(</span><span class="va">stream_fit</span>, null_models <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"MU"</span>, <span class="st">"BL"</span><span class="op">)</span>, n_sim <span class="op">=</span> <span class="fl">4000</span>,</span>
 <span>                               seed <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
 <span><span class="va">b</span> <span class="op">&lt;-</span> <span class="va">bliss</span><span class="op">$</span><span class="va">estimates</span></span>
@@ -1001,7 +1019,7 @@ in each simulation draw.</p>
 <p>In this ray design, survivors out of 20 animals per jar were
 generated so that the two pesticides follow concentration addition
 exactly:</p>
-<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">doses</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>fungicide <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">5</span>, <span class="fl">20</span>, <span class="fl">80</span>, <span class="fl">0</span>, <span class="fl">0</span>, <span class="fl">0</span>, <span class="fl">5</span>, <span class="fl">20</span>, <span class="fl">80</span><span class="op">)</span>,</span>
 <span>                    insecticide <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">0</span>, <span class="fl">0</span>, <span class="fl">0</span>, <span class="fl">1</span>, <span class="fl">4</span>, <span class="fl">16</span>, <span class="fl">1</span>, <span class="fl">4</span>, <span class="fl">16</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">mixtures</span> <span class="op">&lt;-</span> <span class="va">doses</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_len</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">doses</span><span class="op">)</span><span class="op">)</span>, each <span class="op">=</span> <span class="fl">4</span><span class="op">)</span>, <span class="op">]</span></span>
@@ -1052,7 +1070,7 @@ of stressors is a mechanistic question that the data alone cannot settle
 claim of synergy or antagonism.</p>
 <p><code><a href="../reference/compare_null_models.html">compare_null_models()</a></code> sets the null models side by
 side:</p>
-<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/compare_null_models.html">compare_null_models</a></span><span class="op">(</span><span class="va">mix</span><span class="op">)</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"levels"</span>, <span class="st">"BL"</span>, <span class="st">"SAM"</span>, <span class="st">"CA"</span>, <span class="st">"agreement"</span>, <span class="st">"direction"</span><span class="op">)</span><span class="op">]</span></span>
 <span><span class="co">#&gt;                          levels BL SAM CA       agreement direction</span></span>
 <span><span class="co">#&gt; 1   fungicide=5 | insecticide=1  0   0  0            none      &lt;NA&gt;</span></span>
@@ -1209,7 +1227,7 @@ depend on the null model.</p>
 simulation are installed with the package, so that the table can be
 checked and the simulation rerun or extended to other designs, effect
 sizes or numbers of units:</p>
-<div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/list.files.html" class="external-link">dir</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"simulations"</span>, package <span class="op">=</span> <span class="st">"must"</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "null_model_robustness.csv" "null_model_robustness.md" </span></span>
 <span><span class="co">#&gt; [3] "null_model_robustness.R"</span></span></code></pre></div>
@@ -1232,7 +1250,7 @@ other predictors averaged over), so the stressor, time and
 <code>by</code> columns of the design must be predictors of the model.
 For the small experiment above, the AD interaction of <code><a href="https://rdrr.io/r/stats/lm.html" class="external-link">lm()</a></code>
 is its interaction coefficient, with the same t interval:</p>
-<div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb27"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">lm_est</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/estimate_interactions.html">estimate_interactions</a></span><span class="op">(</span><span class="va">reference</span>, <span class="va">small_design</span>, null_models <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"AD"</span>, <span class="st">"MU"</span>, <span class="st">"BL"</span><span class="op">)</span>,</span>
 <span>                                inference <span class="op">=</span> <span class="st">"delta"</span><span class="op">)</span></span>
 <span><span class="va">lm_est</span><span class="op">$</span><span class="va">estimates</span><span class="op">[</span><span class="va">lm_est</span><span class="op">$</span><span class="va">estimates</span><span class="op">$</span><span class="va">component</span> <span class="op">==</span> <span class="st">"interaction"</span>,</span>
@@ -1249,7 +1267,7 @@ degrees of freedom are those that emmeans gives, which are infinite for
 most generalized and mixed models. With few experimental units, give
 them in <code>df</code>: here 24 mesocosms in 8 treatment combinations
 leave 16.</p>
-<div class="sourceCode" id="cb27"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb28"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">zoo_model</span> <span class="op">&lt;-</span> <span class="fu">glmmTMB</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/glmmTMB/man/glmmTMB.html" class="external-link">glmmTMB</a></span><span class="op">(</span></span>
 <span>  <span class="va">total_density</span> <span class="op">~</span> <span class="va">insecticide</span> <span class="op">*</span> <span class="va">herbicide</span> <span class="op">*</span> <span class="va">nutrients</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/base/factor.html" class="external-link">factor</a></span><span class="op">(</span><span class="va">day</span><span class="op">)</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">mesocosm</span><span class="op">)</span>,</span>
 <span>  family <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/family.html" class="external-link">Gamma</a></span><span class="op">(</span>link <span class="op">=</span> <span class="st">"log"</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">zoo</span></span>
@@ -1527,7 +1545,7 @@ on communities. <em>Global Change Biology</em>, 24(1), 517–525. <a href="https
 
 
     <footer><div class="pkgdown-footer-left">
-  <p>Developed by Pablo Amador Crespo.</p>
+  <p>Developed by Pablo Amador Crespo, Andreu Rico.</p>
 </div>
 
 <div class="pkgdown-footer-right">

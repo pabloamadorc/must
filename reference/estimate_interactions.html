@@ -25,7 +25,7 @@ addition (see &quot;Default null model&quot;)."><meta property="og:image" conten
 
     <a class="navbar-brand me-2" href="../index.html">must</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.2.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -52,7 +52,7 @@ addition (see &quot;Default null model&quot;)."><meta property="og:image" conten
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
       <img src="../logo.png" class="logo" alt=""><h1>Estimate single, combined and interaction effects under null models</h1>
-      <small class="dont-index">Source: <a href="https://github.com/pabloamadorc/must/blob/v0.2.0/R/estimate.R" class="external-link"><code>R/estimate.R</code></a>, <a href="https://github.com/pabloamadorc/must/blob/v0.2.0/R/external.R" class="external-link"><code>R/external.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/pabloamadorc/must/blob/main/R/estimate.R" class="external-link"><code>R/estimate.R</code></a>, <a href="https://github.com/pabloamadorc/must/blob/main/R/external.R" class="external-link"><code>R/external.R</code></a></small>
       <div class="d-none name"><code>estimate_interactions.Rd</code></div>
     </div>
 
@@ -712,14 +712,14 @@ effects. <em>Frontiers in Ecology and Evolution</em>, 6, 166.
 <span class="r-out co"><span class="r-pr">#&gt;</span> Inference: Krinsky-Robb simulation (2000 draws), small-sample correction (REML, t); 95% intervals; p-values adjusted with BH; seed 1</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Scales: AD = differences (response scale)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Interactions (1 rows):</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  response                 combination model estimand estimate lower upper  df</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>     algae salinity=high + warming=yes    AD      net      9.8  1.47  18.5 Inf</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  response                 combination model estimand estimate lower upper df</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>     algae salinity=high + warming=yes    AD      net      9.8 0.783  19.3 16</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>  p_adj status</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  0.016     ok</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  0.035     ok</span>
 <span class="r-in"><span><span class="va">est</span><span class="op">$</span><span class="va">estimates</span><span class="op">[</span><span class="va">est</span><span class="op">$</span><span class="va">estimates</span><span class="op">$</span><span class="va">component</span> <span class="op">==</span> <span class="st">"interaction"</span>,</span></span>
 <span class="r-in"><span>  <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"null_model"</span>, <span class="st">"estimate"</span>, <span class="st">"lower"</span>, <span class="st">"upper"</span>, <span class="st">"df"</span>, <span class="st">"p_adjusted"</span><span class="op">)</span><span class="op">]</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   null_model estimate    lower    upper  df p_adjusted</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 4         AD      9.8 1.471868 18.47447 Inf      0.016</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   null_model estimate    lower    upper df p_adjusted</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 4         AD      9.8 0.782748 19.30277 16      0.035</span>
 <span class="r-in"><span><span class="co"># The three null models and the procedure of Madge Pimentel et al. (2025),</span></span></span>
 <span class="r-in"><span><span class="co"># without the correction</span></span></span>
 <span class="r-in"><span><span class="fu">estimate_interactions</span><span class="op">(</span><span class="va">fits</span>, null_models <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"AD"</span>, <span class="st">"MU"</span>, <span class="st">"DO"</span><span class="op">)</span>, n_sim <span class="op">=</span> <span class="fl">2000</span>,</span></span>
@@ -741,19 +741,19 @@ effects. <em>Frontiers in Ecology and Evolution</em>, 6, 166.
 <span class="r-in"><span>  margin <span class="op">=</span> <span class="fl">0.1</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">eq</span><span class="op">$</span><span class="va">estimates</span><span class="op">[</span><span class="va">eq</span><span class="op">$</span><span class="va">estimates</span><span class="op">$</span><span class="va">component</span> <span class="op">==</span> <span class="st">"interaction"</span>,</span></span>
 <span class="r-in"><span>  <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"null_model"</span>, <span class="st">"relative"</span>, <span class="st">"relative_lower"</span>, <span class="st">"relative_upper"</span>, <span class="st">"p_equivalence"</span><span class="op">)</span><span class="op">]</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   null_model    relative relative_lower relative_upper p_equivalence</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 4         AD  0.24623114      0.0403576     0.42205268    0.92420415</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 8         MU -0.00126261     -0.1144368     0.09664942    0.04634745</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   null_model     relative relative_lower relative_upper p_equivalence</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 4         AD  0.246231156     0.02237831      0.4369641     0.9145769</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 8         MU -0.001262594    -0.12707548      0.1096770     0.0560537</span>
 <span class="r-in"><span><span class="fu"><a href="classify_interactions.html">classify_interactions</a></span><span class="op">(</span><span class="va">eq</span><span class="op">)</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"null_model"</span>, <span class="st">"class"</span>, <span class="st">"verdict"</span><span class="op">)</span><span class="op">]</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   null_model class    verdict</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1         AD    -A  deviation</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2         MU    AD equivalent</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   null_model class      verdict</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1         AD    -A    deviation</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2         MU    AD inconclusive</span>
 <span class="r-in"><span><span class="co"># Bliss independence, with its rescaled interaction</span></span></span>
 <span class="r-in"><span><span class="va">bl</span> <span class="op">&lt;-</span> <span class="fu">estimate_interactions</span><span class="op">(</span><span class="va">fits</span>, null_models <span class="op">=</span> <span class="st">"BL"</span>, n_sim <span class="op">=</span> <span class="fl">2000</span>, seed <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">bl</span><span class="op">$</span><span class="va">estimates</span><span class="op">[</span><span class="va">bl</span><span class="op">$</span><span class="va">estimates</span><span class="op">$</span><span class="va">component</span> <span class="op">==</span> <span class="st">"interaction"</span>,</span></span>
 <span class="r-in"><span>  <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"estimate"</span>, <span class="st">"lower"</span>, <span class="st">"upper"</span>, <span class="st">"p_value"</span>, <span class="st">"rescaled"</span>, <span class="st">"rescaled_class"</span><span class="op">)</span><span class="op">]</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>      estimate      lower      upper p_value    rescaled rescaled_class</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 4 -0.00126261 -0.1144368 0.09664942   0.967 -0.00500006       additive</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>       estimate      lower    upper p_value rescaled rescaled_class</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 4 -0.001262594 -0.1270755 0.109677   0.966   -0.005       additive</span>
 <span class="r-in"><span><span class="co"># A model fitted outside must</span></span></span>
 <span class="r-in"><span><span class="va">model</span> <span class="op">&lt;-</span> <span class="fu">stats</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/stats/glm.html" class="external-link">glm</a></span><span class="op">(</span><span class="va">algae</span> <span class="op">~</span> <span class="va">salinity</span> <span class="op">*</span> <span class="va">warming</span>, family <span class="op">=</span> <span class="fu">stats</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/stats/family.html" class="external-link">poisson</a></span><span class="op">(</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">jars</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu">estimate_interactions</span><span class="op">(</span><span class="va">model</span>, <span class="va">design</span>, null_models <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"AD"</span>, <span class="st">"MU"</span>, <span class="st">"BL"</span><span class="op">)</span>, n_sim <span class="op">=</span> <span class="fl">2000</span>,</span></span>
@@ -778,7 +778,7 @@ effects. <em>Frontiers in Ecology and Evolution</em>, 6, 166.
 
 
     <footer><div class="pkgdown-footer-left">
-  <p>Developed by Pablo Amador Crespo.</p>
+  <p>Developed by Pablo Amador Crespo, Andreu Rico.</p>
 </div>
 
 <div class="pkgdown-footer-right">

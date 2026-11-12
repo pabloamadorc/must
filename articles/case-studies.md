@@ -177,6 +177,13 @@ dominance, averaged over the samplings: fewer flies than the more
 harmful stressor alone predicts, the direction of a negative synergism,
 but with p = 0.059.
 
+``` r
+
+plot(alba_est, type = "models", response = "flies", time = "overall")
+```
+
+![](case-studies_files/figure-html/alba-plot-1.png)
+
 ## Salinisation and nutrient enrichment in two orders
 
 Fuggle et al. (2025) asked whether the order in which two stressors
@@ -249,6 +256,13 @@ round(with(measured, tapply(gross_production, list(treatment, day), mean)))
 #> S  14232 12383
 #> SN 33433 11387
 ```
+
+``` r
+
+plot(fuggle_est, type = "interactions", group_by = "set")
+```
+
+![](case-studies_files/figure-html/fuggle-plot-1.png)
 
 Neither order deviates from any null model on either day. The largest
 deviation is that of salinity first on day 1: gross production was
@@ -398,6 +412,27 @@ between the two expectations and
 [`compare_null_models()`](https://pabloamadorc.github.io/must/reference/compare_null_models.md)
 calls the deviation conflicting.
 
+The sets that remove the microbiome at 9 and 13.5 °C, with 16 h of
+light, under AD:
+
+``` r
+
+plot(giesler_est, set_id = unique(lost$set_id))
+```
+
+![](case-studies_files/figure-html/giesler-plot-1.png)
+
+and the conflicting set of *T. rotula* under each null model:
+
+``` r
+
+conflict <- e$set_id[e$species == "T. rotula" & e$component == "interaction" &
+                       e$levels == "temperature=13.5 | photoperiod=24 | microbiome=present"]
+plot(giesler_est, type = "models", set_id = unique(conflict))
+```
+
+![](case-studies_files/figure-html/giesler-models-1.png)
+
 ## Temperature, salinity and oxygen in horseshoe crab embryos
 
 Horseshoe crabs (*Limulus polyphemus*) lay their eggs in beach sediment,
@@ -520,6 +555,18 @@ only 2 of 48 developed, against 37 of 48 and 42 of 48 with each stressor
 alone. The pure interaction of 35 °C, 15 ppt and 13% oxygen is positive:
 mild hypoxia let most embryos develop in warm brackish water (39 of 48),
 far more than the pairwise interactions predict.
+
+A set that needs the cell with low salinity alone, and the two pairs
+that deviate, under AD; triangles mark the tests from only zeros:
+
+``` r
+
+deviating_sets <- unique(ad$set_id[which(ad$estimand == "net" & ad$p_adjusted < 0.05)])
+needs_zeros <- ad$set_id[which(ad$estimand == "net" & ad$status == "not_estimable")][1]
+plot(vasquez_est, set_id = c(needs_zeros, deviating_sets))
+```
+
+![](case-studies_files/figure-html/vasquez-plot-1.png)
 
 ## Four stressors on header tanks
 
@@ -671,7 +718,21 @@ the article, the same deviation has 111 degrees of freedom and p =
 0.018, which the adjustment across the 11 sets raises to 0.19. The
 four-stressor design identifies every interaction, but for those that
 involve temperature or CO2 its replication is that of two tanks per
-combination.
+combination. On a common axis, the copepods under CO2 and sediment with
+the tanks, and with the mesocosms, as the replicates of CO2:
+
+``` r
+
+co2 <- unique(e$set_id[e$stressors == "co2 x sediment"])
+both <- rbind(hunn_est$estimates, channels_est$estimates)
+both <- both[both$response == "copepoda" & both$set_id == co2 & both$null_model == "AD", ]
+xlim <- grDevices::extendrange(c(0, both$lower, both$upper), f = 0.05)
+plot(hunn_est, response = "copepoda", set_id = co2, xlim = xlim,
+     main = "Header tanks as the replicates of CO2")
+plot(channels_est, set_id = co2, xlim = xlim, main = "Mesocosms as independent replicates")
+```
+
+![](case-studies_files/figure-html/hunn-plot-1.png)![](case-studies_files/figure-html/hunn-plot-2.png)
 
 ## Five global changes on split plots
 
@@ -814,7 +875,16 @@ adds up the pure interactions of all its subsets of two or more
 stressors, 26 for five stressors, so it grows with the number of
 stressors even when the pure interactions alternate in sign, as they do
 here. That is what must’s distinction between net and pure interactions
-adds to the observation of the article.
+adds to the observation of the article. The set of all five stressors
+follows the averages: below the additive expectation right after the
+fire and at 21 months, above it at 5, 9 and 33 months.
+
+``` r
+
+plot(niboyet_est, type = "time", set_id = unique(e$set_id[e$order == 5L]))
+```
+
+![](case-studies_files/figure-html/niboyet-plot-1.png)
 
 ## What the case studies show
 

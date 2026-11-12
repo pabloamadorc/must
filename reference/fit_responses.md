@@ -313,16 +313,13 @@ fits <- fit_responses(jars, c("algae", "survivors"), design,
 fits
 #> <must_fit> 2 response(s); time structure: interaction; dispersion: common; random effects: none
 #> Residual checks: not run; seed: 1
-#>   algae: poisson (log link; count, detected), AIC 112.2, n = 20, missing = 0, residual checks: not run
+#>   algae: nbinom2 (log link; count, detected), AIC 114.2, n = 20, missing = 0, residual checks: not run
 #>   survivors: binomial (logit link; binomial, trials), AIC 71.4, n = 20, missing = 0, residual checks: not run
 fits$fits$algae$selection
 #>    family link random converged      aic p_uniformity p_dispersion
 #> 1 poisson  log   none      TRUE 112.2431           NA           NA
-#> 2 nbinom2  log   none     FALSE       NA           NA           NA
-#>   p_zero_inflation n_tests_passed residuals_ok selected
-#> 1               NA             NA           NA     TRUE
-#> 2               NA             NA           NA    FALSE
-#>                                                                                               message
-#> 1                                                                                                    
-#> 2 Model convergence problem; false convergence (8). See vignette('troubleshooting'), help('diagnose')
+#> 2 nbinom2  log   none      TRUE 114.2431           NA           NA
+#>   p_zero_inflation n_tests_passed residuals_ok selected message
+#> 1               NA             NA           NA    FALSE        
+#> 2               NA             NA           NA     TRUE        
 ```

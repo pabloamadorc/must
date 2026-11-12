@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">must</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.2.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -34,9 +34,26 @@
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
       <img src="../logo.png" class="logo" alt=""><h1>Changelog</h1>
-      <small>Source: <a href="https://github.com/pabloamadorc/must/blob/v0.2.0/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
+      <small>Source: <a href="https://github.com/pabloamadorc/must/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="0.3.0" id="must-030">must 0.3.0<a class="anchor" aria-label="anchor" href="#must-030"></a></h2>
+<ul><li>
+<p><code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> of <code>must_interactions</code> objects has been redesigned and draws four kinds of figure, chosen with <code>type</code>:</p>
+<ul><li>
+<code>"effects"</code> (the new default): for each interaction, the effect of each stressor alone, the combined effect expected under the null model, the combined effect observed and the interaction, with its class at the right: how the interaction arises.</li>
+<li>
+<code>"interactions"</code>: the interactions alone, one row each, on the scale of the null model or as relative deviations (<code>scale</code>), optionally under headers by set, time or group (<code>group_by</code>).</li>
+<li>
+<code>"models"</code>: the interaction under each null model as a deviation relative to the reference, with its class: whether the conclusion depends on the null model.</li>
+<li>
+<code>"time"</code>: one figure per set with the single and combined effects and the interaction over the sampling times.</li>
+</ul><p>Sets, times and groups are chosen with <code>set_id</code>, <code>time</code> and <code>context</code>; labels with <code>labels</code>, <code>stressor_labels</code>, <code>label_style</code> and <code>label_width</code>. Classes are written as codes (<code>S+</code>, <code>S-</code>, <code>A+</code>, <code>A-</code>, <code>n.d.</code>) or names (<code>classes</code>). Long figures are split into pages (<code>per_page</code>). Infinite estimates, estimates outside given limits and intervals cut by the limits end in arrows (<code>type = "models"</code> cuts intervals that reach far beyond the estimates). <code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> returns the rows drawn invisibly, and arguments it does not use are now an error instead of being passed to <code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot.default()</a></code>.</p>
+</li>
+<li><p><code><a href="../reference/estimate_interactions.html">estimate_interactions()</a></code> no longer fails with glmmTMB 1.1.11 to 1.1.15 when two or more treatment combinations have only zeros (or only successes): <code><a href="https://rdrr.io/r/stats/vcov.html" class="external-link">vcov()</a></code> of those versions fails for a model with two or more parameters fixed at the boundary, and the covariance of the fixed effects is now built from that of the estimated parameters.</p></li>
+<li><p>Andreu Rico is now an author of the package: <code>citation("must")</code> and the methods written by <code><a href="../reference/report_interactions.html">report_interactions()</a></code> cite both authors.</p></li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.2.0" id="must-020">must 0.2.0<a class="anchor" aria-label="anchor" href="#must-020"></a></h2>
 <ul><li><p>The package has a website, <a href="https://pabloamadorc.github.io/must/" class="uri">https://pabloamadorc.github.io/must/</a>, with the help pages, the vignettes and the case studies.</p></li>
@@ -79,7 +96,7 @@
 
 
     <footer><div class="pkgdown-footer-left">
-  <p>Developed by Pablo Amador Crespo.</p>
+  <p>Developed by Pablo Amador Crespo, Andreu Rico.</p>
 </div>
 
 <div class="pkgdown-footer-right">
