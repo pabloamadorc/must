@@ -69,11 +69,18 @@ Useful links:
 
 }
 \author{
-\strong{Maintainer}: Pablo Amador Crespo \email{pamadorc@gmail.com} (\href{https://orcid.org/0000-0002-3793-8794}{ORCID})
+\strong{Maintainer}: Pablo Amador Crespo \email{pamadorc@gmail.com} (\href{https://orcid.org/0000-0002-3793-8794}{ORCID}) [copyright holder]
 
 Authors:
 \itemize{
-  \item Andreu Rico (\href{https://orcid.org/0000-0002-1820-4218}{ORCID})
+  \item Andreu Rico (\href{https://orcid.org/0000-0002-1820-4218}{ORCID}) [copyright holder]
+}
+
+Other contributors:
+\itemize{
+  \item Generalitat Valenciana (ERAHUMED project, PlanGenT, CIDEGENT/2020/043) [funder]
+  \item Agencia Estatal de Investigación (STABLE project, grant PID2025-174099OB-I00 funded by MICIU/AEI/10.13039/501100011033 and by ERDF/EU) [funder]
+  \item BBVA Foundation (Leonardo Grant for Scientific Research and Cultural Creation 2025) [funder]
 }
 
 }

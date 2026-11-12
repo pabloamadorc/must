@@ -360,6 +360,17 @@ prediction in multiple stressor research through a mechanistic basis for null
 models. *Global Change Biology*, 24(5), 1817–1826.
 <https://doi.org/10.1111/gcb.14073>
 
+## Funding
+
+The development of must has been funded by:
+
+- the ERAHUMED project, funded by the Talented Researcher Support
+  Programme – PlanGenT (CIDEGENT/2020/043) of the Generalitat Valenciana;
+- the STABLE project, grant PID2025-174099OB-I00 funded by
+  MICIU/AEI/10.13039/501100011033 and by ERDF/EU;
+- a 2025 Leonardo Grant for Scientific Research and Cultural Creation of the
+  BBVA Foundation, awarded to Andreu Rico.
+
 ## License
 
-MIT © Pablo Amador Crespo
+MIT © Pablo Amador Crespo and Andreu Rico
