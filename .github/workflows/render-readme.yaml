@@ -1,0 +1,72 @@
+# Renders README.Rmd on GitHub, so that README.md and its figures always come
+# from the current version of the package, and commits them when they change.
+# The commits are made by github-actions[bot]: pull them before committing
+# again from your computer.
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - README.Rmd
+      - DESCRIPTION
+      - "R/**"
+      - "data/**"
+      - "inst/**"
+      - .github/workflows/render-readme.yaml
+  workflow_dispatch:
+
+name: render-readme.yaml
+
+permissions: read-all
+
+jobs:
+  render-readme:
+    runs-on: ubuntu-latest
+    # A newer push replaces a render that is still running
+    concurrency:
+      group: render-readme-${{ github.ref }}
+      cancel-in-progress: true
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: r-lib/actions/setup-pandoc@v2
+
+      - uses: r-lib/actions/setup-r@v2
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: any::rmarkdown, local::.
+
+      - name: Render README
+        run: rmarkdown::render("README.Rmd", output_options = list(html_preview = FALSE), quiet = TRUE)
+        shell: Rscript {0}
+
+      - name: Commit README.md and its figures
+        id: commit
+        run: |
+          git config --local user.name "github-actions[bot]"
+          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add README.md man/figures
+          if git diff --cached --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            git commit -m "Render README"
+            git pull --rebase origin "$GITHUB_REF_NAME"
+            git push origin "HEAD:$GITHUB_REF_NAME"
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Commits pushed with GITHUB_TOKEN start no workflows: in the public
+      # repository, rebuild the website so that its home page shows the new
+      # README.
+      - name: Rebuild the website
+        if: steps.commit.outputs.changed == 'true' && github.repository == 'pabloamadorc/must'
+        run: gh workflow run pkgdown.yaml --ref "$GITHUB_REF_NAME"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
