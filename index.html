@@ -214,13 +214,13 @@
 <div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">report</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/report_interactions.html">report_interactions</a></span><span class="op">(</span><span class="va">est</span>, classes <span class="op">=</span> <span class="va">cls</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/strwrap.html" class="external-link">strwrap</a></span><span class="op">(</span><span class="va">report</span><span class="op">$</span><span class="va">methods</span><span class="op">[[</span><span class="fl">2</span><span class="op">]</span><span class="op">]</span>, width <span class="op">=</span> <span class="fl">100</span><span class="op">)</span>, sep <span class="op">=</span> <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; The analysis was run with the R package must 0.3.0 (Amador Crespo &amp; Rico 2026) in R 4.3.3 (R Core</span></span>
-<span><span class="co">#&gt; Team 2024). Each response (total_density, cyclopoida and daphnia) was modelled with a generalized</span></span>
+<span><span class="co">#&gt; The analysis was run with the R package must 0.3.0 (Amador Crespo &amp; Rico 2026) in R 4.6.2 (R Core</span></span>
+<span><span class="co">#&gt; Team 2026). Each response (total_density, cyclopoida and daphnia) was modelled with a generalized</span></span>
 <span><span class="co">#&gt; linear mixed model with one mean per treatment combination and sampling time (a cell-means model)</span></span>
-<span><span class="co">#&gt; and a random intercept for each mesocosm, fitted by maximum likelihood with glmmTMB 1.1.8 (Brooks</span></span>
-<span><span class="co">#&gt; et al. 2017). The error distribution was chosen among candidates suited to the values of each</span></span>
-<span><span class="co">#&gt; response (Gaussian (identity link), Gaussian (log link), Gamma (log link) and lognormal (log link),</span></span>
-<span><span class="co">#&gt; for total_density; Gaussian (identity link), Gaussian (log link) and Tweedie (log link), for</span></span>
+<span><span class="co">#&gt; and a random intercept for each mesocosm, fitted by maximum likelihood with glmmTMB 1.1.15.2</span></span>
+<span><span class="co">#&gt; (Brooks et al. 2017). The error distribution was chosen among candidates suited to the values of</span></span>
+<span><span class="co">#&gt; each response (Gaussian (identity link), Gaussian (log link), Gamma (log link) and lognormal (log</span></span>
+<span><span class="co">#&gt; link), for total_density; Gaussian (identity link), Gaussian (log link) and Tweedie (log link), for</span></span>
 <span><span class="co">#&gt; cyclopoida and daphnia): the candidate that converged with a positive-definite Hessian and had the</span></span>
 <span><span class="co">#&gt; lowest AIC was selected. The models selected were Gamma (log link) for total_density; Tweedie (log</span></span>
 <span><span class="co">#&gt; link) for cyclopoida and daphnia. The means of the treatment combinations with only zeros (6 for</span></span>
@@ -235,8 +235,8 @@
 </h2>
 <table class="table">
 <colgroup>
-<col width="24%">
-<col width="42%">
+<col width="33%">
+<col width="33%">
 <col width="33%">
 </colgroup>
 <thead><tr>
@@ -287,7 +287,7 @@
 <li>
 <strong>Estimands.</strong> For k ≥ 3 stressors, <code>net</code> = yK − Σ yi + (k − 1) y0 (or on the log scale) and <code>pure</code> = inclusion–exclusion over all 2^k combinations; under BL, <code>net</code> = wK − Π wi and, for three stressors, <code>pure</code> is the emergent interaction of Beppler et al. (2016), with their rescaled value reported as a description of size. SAM and CA give the net interaction only, and CA needs at least two doses of each stressor tested alone. DO is defined for two stressors only. By default, interactions are estimated with the other stressors at control; <code>background = "all"</code> in <code><a href="reference/describe_design.html">describe_design()</a></code> also estimates them in the presence of the others.</li>
 <li>
-<strong>Inference.</strong> Krinsky–Robb simulation (as in Madge Pimentel et al. 2025) or the delta method (not for DO). By default (<code>correction =   "small_sample"</code>) the covariance comes from a REML refit and the sampling distribution is a t with the degrees of freedom of the experimental units (column <code>df</code>); <code>correction = "none"</code> reproduces the asymptotic procedure. p-values are adjusted with Benjamini–Hochberg across contrast sets and sampling times; averages over times (<code>time = "overall"</code>) are adjusted separately, and pre-treatment samplings declared in <code>baseline</code> are not tested.</li>
+<strong>Inference.</strong> Krinsky–Robb simulation (as in Madge Pimentel et al. 2025) or the delta method (not for DO). By default (<code>correction = "small_sample"</code>) the covariance comes from a REML refit and the sampling distribution is a t with the degrees of freedom of the experimental units (column <code>df</code>); <code>correction = "none"</code> reproduces the asymptotic procedure. p-values are adjusted with Benjamini–Hochberg across contrast sets and sampling times; averages over times (<code>time = "overall"</code>) are adjusted separately, and pre-treatment samplings declared in <code>baseline</code> are not tested.</li>
 <li>
 <strong>Responses.</strong> Counts, continuous values with or without zeros (Tweedie), successes out of a number of trials (<code>trials</code>) and counts per unit of effort (<code>offset</code>); one dispersion for all, per <code>by</code> group or per treatment combination (<code>dispersion</code>). A combination with only zeros is tested from the probability of that outcome under the null model.</li>
 <li>

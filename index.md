@@ -260,13 +260,13 @@ this is its paragraph on the models:
 
 report <- report_interactions(est, classes = cls)
 cat(strwrap(report$methods[[2]], width = 100), sep = "\n")
-#> The analysis was run with the R package must 0.3.0 (Amador Crespo & Rico 2026) in R 4.3.3 (R Core
-#> Team 2024). Each response (total_density, cyclopoida and daphnia) was modelled with a generalized
+#> The analysis was run with the R package must 0.3.0 (Amador Crespo & Rico 2026) in R 4.6.2 (R Core
+#> Team 2026). Each response (total_density, cyclopoida and daphnia) was modelled with a generalized
 #> linear mixed model with one mean per treatment combination and sampling time (a cell-means model)
-#> and a random intercept for each mesocosm, fitted by maximum likelihood with glmmTMB 1.1.8 (Brooks
-#> et al. 2017). The error distribution was chosen among candidates suited to the values of each
-#> response (Gaussian (identity link), Gaussian (log link), Gamma (log link) and lognormal (log link),
-#> for total_density; Gaussian (identity link), Gaussian (log link) and Tweedie (log link), for
+#> and a random intercept for each mesocosm, fitted by maximum likelihood with glmmTMB 1.1.15.2
+#> (Brooks et al. 2017). The error distribution was chosen among candidates suited to the values of
+#> each response (Gaussian (identity link), Gaussian (log link), Gamma (log link) and lognormal (log
+#> link), for total_density; Gaussian (identity link), Gaussian (log link) and Tweedie (log link), for
 #> cyclopoida and daphnia): the candidate that converged with a positive-definite Hessian and had the
 #> lowest AIC was selected. The models selected were Gamma (log link) for total_density; Tweedie (log
 #> link) for cyclopoida and daphnia. The means of the treatment combinations with only zeros (6 for
