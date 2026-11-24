@@ -248,13 +248,13 @@ settings of the objects; this is its paragraph on the models:
 ``` r
 report <- report_interactions(est, classes = cls)
 cat(strwrap(report$methods[[2]], width = 100), sep = "\n")
-#> The analysis was run with the R package must 0.3.0 (Amador Crespo & Rico 2026) in R 4.3.3 (R Core
-#> Team 2024). Each response (total_density, cyclopoida and daphnia) was modelled with a generalized
+#> The analysis was run with the R package must 0.3.0 (Amador Crespo & Rico 2026) in R 4.6.2 (R Core
+#> Team 2026). Each response (total_density, cyclopoida and daphnia) was modelled with a generalized
 #> linear mixed model with one mean per treatment combination and sampling time (a cell-means model)
-#> and a random intercept for each mesocosm, fitted by maximum likelihood with glmmTMB 1.1.8 (Brooks
-#> et al. 2017). The error distribution was chosen among candidates suited to the values of each
-#> response (Gaussian (identity link), Gaussian (log link), Gamma (log link) and lognormal (log link),
-#> for total_density; Gaussian (identity link), Gaussian (log link) and Tweedie (log link), for
+#> and a random intercept for each mesocosm, fitted by maximum likelihood with glmmTMB 1.1.15.2
+#> (Brooks et al. 2017). The error distribution was chosen among candidates suited to the values of
+#> each response (Gaussian (identity link), Gaussian (log link), Gamma (log link) and lognormal (log
+#> link), for total_density; Gaussian (identity link), Gaussian (log link) and Tweedie (log link), for
 #> cyclopoida and daphnia): the candidate that converged with a positive-definite Hessian and had the
 #> lowest AIC was selected. The models selected were Gamma (log link) for total_density; Tweedie (log
 #> link) for cyclopoida and daphnia. The means of the treatment combinations with only zeros (6 for
@@ -271,14 +271,14 @@ and the references for an R Markdown or Quarto document.
 
 ## Methods and decisions
 
-| Null model                 | “No interaction” means                         | Interaction estimate (two stressors) |
-|----------------------------|------------------------------------------------|--------------------------------------|
-| AD, simple addition        | changes add up on the response scale           | yAB − yA − yB + y0                   |
-| MU, multiplicative         | relative changes multiply                      | ln yAB − ln yA − ln yB + ln y0       |
-| DO, dominance              | the strongest single effect prevails           | min(yAB, y0) − min(yA, yB)           |
-| BL, Bliss independence     | relative responses w = y / y0 multiply         | wAB − wA wB                          |
-| SAM, stress addition       | the general stresses of the stressors add up   | wAB − wSAM                           |
-| CA, concentration addition | each stressor acts as a dilution of the others | wAB − wCA                            |
+| Null model | “No interaction” means | Interaction estimate (two stressors) |
+|----|----|----|
+| AD, simple addition | changes add up on the response scale | yAB − yA − yB + y0 |
+| MU, multiplicative | relative changes multiply | ln yAB − ln yA − ln yB + ln y0 |
+| DO, dominance | the strongest single effect prevails | min(yAB, y0) − min(yA, yB) |
+| BL, Bliss independence | relative responses w = y / y0 multiply | wAB − wA wB |
+| SAM, stress addition | the general stresses of the stressors add up | wAB − wSAM |
+| CA, concentration addition | each stressor acts as a dilution of the others | wAB − wCA |
 
 - **Choosing the null models.** `suggest_null_models()` follows the
   guidelines of Schäfer & Piggott (2018, Fig. 3): whether the stressors
@@ -328,10 +328,10 @@ and the references for an R Markdown or Quarto document.
   them in the presence of the others.
 - **Inference.** Krinsky–Robb simulation (as in Madge Pimentel et
   al. 2025) or the delta method (not for DO). By default
-  (`correction =   "small_sample"`) the covariance comes from a REML
-  refit and the sampling distribution is a t with the degrees of freedom
-  of the experimental units (column `df`); `correction = "none"`
-  reproduces the asymptotic procedure. p-values are adjusted with
+  (`correction = "small_sample"`) the covariance comes from a REML refit
+  and the sampling distribution is a t with the degrees of freedom of
+  the experimental units (column `df`); `correction = "none"` reproduces
+  the asymptotic procedure. p-values are adjusted with
   Benjamini–Hochberg across contrast sets and sampling times; averages
   over times (`time = "overall"`) are adjusted separately, and
   pre-treatment samplings declared in `baseline` are not tested.
