@@ -1,5 +1,5 @@
 
-<!-- README.md is generated from README.Rmd. Edit README.Rmd and render it with rmarkdown::render("README.Rmd") after installing the package. -->
+<!-- README.md and its figures are generated from README.Rmd on GitHub (.github/workflows/render-readme.yaml) when the package changes: edit README.Rmd only. -->
 
 # must <img src="man/figures/logo.png" align="right" height="160" alt="" />
 
@@ -40,6 +40,21 @@ three decisions behind any claim of synergism or antagonism:
     the net deviation from the single-stressor effects from the pure
     highest-order interaction. `classify_interactions()` gives the
     directional classes of Piggott et al. (2015).
+
+For communities, `estimate_community()` tests the effects of the
+stressors on the total abundance and the richness of the taxa, from the
+models of each taxon, against the compositional null model of Thompson
+et al. (2018), which adds the effects of the stressors on each taxon,
+and against the additive and multiplicative null models applied to the
+properties themselves. `test_community()` tests the multiplicative null
+model, or the additive one truncated at zero, on all the taxa at once,
+with the multivariate generalised linear models that Szöcs et al. (2015)
+proposed for mesocosm experiments: counts (package mvabund), with the
+sampling effort when they are densities, or densities and biomass with
+Tweedie models. `estimate_interactions()` can also test AD and MU by
+resampling whole experimental units under each null model
+(`inference = "resampling"`), instead of from the distribution of the
+fitted models.
 
 `report_interactions()` then writes the methods of the analysis, with
 the works cited, and a table of every decision behind it, from the
@@ -207,10 +222,10 @@ estimates differ slightly because, with random effects, the corrected
 ones come from the REML refit.)
 
 `plot()` shows how an interaction arises: the effect of each stressor
-alone, the combined effect that the null model expects from them, the
-combined effect observed and the interaction, which is the difference
-between the last two, with its class (see below). The three-stressor set
-on day 7, under AD:
+alone, the combined effect that the null model expects from them (with
+its interval), the combined effect observed and the interaction, which
+is the difference between the last two, with its class (see below). The
+three-stressor set on day 7, under AD:
 
 ``` r
 trio <- unique(est$estimates$set_id[est$estimates$order == 3L])
@@ -248,20 +263,21 @@ settings of the objects; this is its paragraph on the models:
 ``` r
 report <- report_interactions(est, classes = cls)
 cat(strwrap(report$methods[[2]], width = 100), sep = "\n")
-#> The analysis was run with the R package must 0.3.0 (Amador Crespo & Rico 2026) in R 4.6.2 (R Core
-#> Team 2026). Each response (total_density, cyclopoida and daphnia) was modelled with a generalized
-#> linear mixed model with one mean per treatment combination and sampling time (a cell-means model)
-#> and a random intercept for each mesocosm, fitted by maximum likelihood with glmmTMB 1.1.15.2
-#> (Brooks et al. 2017). The error distribution was chosen among candidates suited to the values of
-#> each response (Gaussian (identity link), Gaussian (log link), Gamma (log link) and lognormal (log
-#> link), for total_density; Gaussian (identity link), Gaussian (log link) and Tweedie (log link), for
-#> cyclopoida and daphnia): the candidate that converged with a positive-definite Hessian and had the
-#> lowest AIC was selected. The models selected were Gamma (log link) for total_density; Tweedie (log
-#> link) for cyclopoida and daphnia. The means of the treatment combinations with only zeros (6 for
-#> daphnia) were fixed at the boundary of the link function; a contrast that compares such a
-#> combination with its expectation was tested from the probability of observing only zeros under that
-#> expectation, and contrasts that need such a combination to compute it were not estimated. For the
-#> inference, the selected models were refitted by restricted maximum likelihood (REML).
+#> The analysis was run with the R package must 0.3.0.9000 (Amador Crespo & Rico 2026) in R 4.6.2 (R
+#> Core Team 2026). Each response (total_density, cyclopoida and daphnia) was modelled with a
+#> generalized linear mixed model with one mean per treatment combination and sampling time (a
+#> cell-means model) and a random intercept for each mesocosm, fitted by maximum likelihood with
+#> glmmTMB 1.1.15.2 (Brooks et al. 2017). The error distribution was chosen among candidates suited to
+#> the values of each response (Gaussian (identity link), Gaussian (log link), Gamma (log link) and
+#> lognormal (log link), for total_density; Gaussian (identity link), Gaussian (log link) and Tweedie
+#> (log link), for cyclopoida and daphnia): the candidate that converged with a positive-definite
+#> Hessian and had the lowest AIC was selected. The models selected were Gamma (log link) for
+#> total_density; Tweedie (log link) for cyclopoida and daphnia. The means of the treatment
+#> combinations with only zeros (6 for daphnia) were fixed at the boundary of the link function; a
+#> contrast that compares such a combination with its expectation was tested from the probability of
+#> observing only zeros under that expectation, and contrasts that need such a combination to compute
+#> it were not estimated. For the inference, the selected models were refitted by restricted maximum
+#> likelihood (REML).
 ```
 
 `report$decisions` lists every decision with its argument, the value
@@ -453,6 +469,18 @@ Schäfer, R. B., & Piggott, J. J. (2018). Advancing understanding and
 prediction in multiple stressor research through a mechanistic basis for
 null models. *Global Change Biology*, 24(5), 1817–1826.
 <https://doi.org/10.1111/gcb.14073>
+
+Szöcs, E., Van den Brink, P. J., Lagadic, L., Caquet, T., Roucaute, M.,
+Auber, A., Bayona, Y., Liess, M., Ebke, P., Ippolito, A., ter Braak, C.
+J. F., Brock, T. C. M., & Schäfer, R. B. (2015). Analysing
+chemical-induced changes in macroinvertebrate communities in aquatic
+mesocosm experiments: a comparison of methods. *Ecotoxicology*, 24,
+760–769. <https://doi.org/10.1007/s10646-015-1421-0>
+
+Thompson, P. L., MacLennan, M. M., & Vinebrooke, R. D. (2018). An
+improved null model for assessing the net effects of multiple stressors
+on communities. *Global Change Biology*, 24(1), 517–525.
+<https://doi.org/10.1111/gcb.13852>
 
 ## Funding
 
