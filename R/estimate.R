@@ -28,8 +28,11 @@
 #'   output of [suggest_null_models()]: its null models are estimated, and its
 #'   criteria and reasons are kept in `settings$null_model_choice`.
 #' @param inference `"simulation"` (default; Krinsky–Robb: draws of the fixed
-#'   effects from their estimated distribution) or `"delta"` (delta method;
-#'   not for `"DO"`).
+#'   effects from their estimated distribution), `"delta"` (delta method;
+#'   not for `"DO"`) or, for a `must_fit` and the null models `"AD"` and
+#'   `"MU"`, `"resampling"`: the net interactions are tested by resampling
+#'   whole experimental units under the null model, a GLM of the family of
+#'   each fitted model (see "Resampling").
 #' @param correction `"small_sample"` (default) or `"none"`. For a `must_fit`
 #'   with `"small_sample"`, the covariance of the fixed effects comes from the
 #'   REML refit of the selected model and the sampling distribution is a t
@@ -67,6 +70,8 @@
 #' @param sam_shape Shape of the symmetric beta distribution of the stress
 #'   capacity of individuals in the stress addition model (both of its
 #'   parameters). Default 3.2, the value fitted by Liess et al. (2016).
+#' @param n_boot Number of resamples for `inference = "resampling"` (at
+#'   least 99). Default 999.
 #' @param margin `NULL` (default) or a positive number: the equivalence
 #'   margin for the relative deviation of each interaction (`relative`, a
 #'   share of the response of the reference cell; 0.1 means 10%). With a
@@ -103,8 +108,10 @@
 #'     `scale` (`"response"`, `"log(response)"` or `"response / control"`):
 #'     what "no interaction" means and on which scale.
 #'   * `component`: `"single"` (one stressor alone vs the reference cell;
-#'     its name in `stressor`), `"combined"` (all stressors of the set vs the
-#'     reference) or `"interaction"`.
+#'     its name in `stressor`), `"expected"` (the combined effect that the
+#'     null model expects from the single effects; see Details),
+#'     `"combined"` (all stressors of the set vs the reference) or
+#'     `"interaction"`.
 #'   * `estimand` for interactions: `"net"` (deviation of the combination
 #'     from the null-model combination of the single effects) or `"pure"`
 #'     (highest-order interaction once all lower-order ones are removed;
@@ -114,7 +121,8 @@
 #'     scaled to a t distribution, comparable with the delta method),
 #'     `lower`, `upper`, `level`, `df` (degrees of freedom of the t
 #'     distribution; `Inf` for the normal), `p_value`, `p_adjusted`, `mc_se`
-#'     (Monte Carlo standard error of a simulated p-value).
+#'     (Monte Carlo standard error of a simulated p-value). The expected
+#'     combined effect is not tested: its p-values are `NA`.
 #'   * `observed` and `expected` (interactions only, response scale): the
 #'     fitted mean of the combination and the value the null model predicts.
 #'   * `relative`, `relative_lower` and `relative_upper` (interactions only):
@@ -127,7 +135,8 @@
 #'   * `rescaled` and `rescaled_class` (BL interactions only): the
 #'     interaction relative to its extremes and its descriptive class (see
 #'     "Bliss independence").
-#'   * `inference`, `status` (`"ok"`, `"boundary"` (tested from the
+#'   * `inference` (`"simulation"`, `"delta"`, `"boundary test"` or
+#'     `"resampling"`), `status` (`"ok"`, `"boundary"` (tested from the
 #'     probability of a combination with only zeros, see Details),
 #'     `"not_estimable"`, `"not_identifiable"`, `"not_defined"` or
 #'     `"not_applicable"`), `reason`, `note` (`"expected_below_zero"` when
@@ -139,7 +148,10 @@
 #'     means at the margin could not be found (see "Equivalence");
 #'     `"confounded_with_groups"` for the sets flagged
 #'     in `sets$confounded` by [describe_design()]; `"complement"` for
-#'     responses analysed as 1 - p; several notes are separated by `"; "`).
+#'     responses analysed as 1 - p; `"joint_over_times"` for the resampling
+#'     test of all times together; `"resampling_not_available"` for a net
+#'     interaction that kept the post-estimation test, with the reason in
+#'     `reason`; several notes are separated by `"; "`).
 #'
 #'   `settings` holds the arguments used (with the seed and whether it was
 #'   given), the versions of must and R (and emmeans, for a model fitted
@@ -177,6 +189,18 @@
 #' **Single and combined effects** are differences from the reference cell
 #' on the response scale (AD) or log ratios (MU). For DO only the
 #' interaction is reported; its single effects are those of AD.
+#'
+#' **Expected combined effect.** The combined effect that the null model
+#' predicts from the single effects, on the scale of the single and combined
+#' effects: their sum under AD and MU; under BL, SAM and CA, the relative
+#' response that the null model predicts for the combination (under BL the
+#' product of those of the stressors alone), minus 1. The net interaction is
+#' the observed combined effect minus the expected one. The interval of the
+#' expected effect comes from the same simulation draws (or, with
+#' `"delta"`, the same gradient and covariance) as the other estimates, so
+#' it accounts for the covariance of the means it uses; it is not tested. It
+#' does not use the combination, so it keeps its interval when the
+#' combination has only zeros.
 #'
 #' **Inference.** `"simulation"` follows the Krinsky–Robb method used by
 #' Madge Pimentel et al. (2025): percentile intervals and two-sided p-values
@@ -217,8 +241,8 @@
 #' successes) and the model selected by [fit_responses()] has a log or logit
 #' link, the null model still predicts a mean E for it from the other cells.
 #' The p-value is twice the probability of observing only zeros if the mean
-#' were E, averaged over the draws of E (`status = "boundary"`; Poisson, NB2,
-#' Tweedie, binomial and beta-binomial models). Random intercepts are
+#' were E, averaged over the draws of E (`status = "boundary"`; Poisson, NB1,
+#' NB2, Tweedie, binomial and beta-binomial models). Random intercepts are
 #' integrated out: observations that share a level of a random effect share
 #' one intercept with the variance of all random terms, which is exact with a
 #' single grouping (units or rooms, say) and conservative with nested or
@@ -228,6 +252,50 @@
 #' not given. If the reference cell, or a single-stressor cell that an
 #' interaction needs, has only zeros, that contrast cannot be measured and
 #' the row is `"not_estimable"`.
+#'
+#' **Resampling.** With `inference = "resampling"` the estimates, their
+#' intervals and the tests of the single and combined effects stay those of
+#' the post-estimation inference (`"simulation"`, with the same seed); only
+#' the net interactions under AD and MU are tested otherwise. For each set
+#' and time, a GLM of the distribution of the fitted model (Poisson,
+#' negative binomial with its size, NB1, Gaussian, gamma, lognormal or
+#' Tweedie with its power) is fitted to the samples of the reference cell,
+#' of each stressor alone and of the combination twice: with one mean per
+#' cell, and under the null model, the effects of the stressors adding up
+#' on the response scale (AD, an identity link) or on the log scale (MU, a
+#' log link). For responses that cannot be negative the means of AD are
+#' kept non-negative: when AD expects a negative mean for the combination,
+#' the null model is fitted at that boundary and an absent combination
+#' deviates from it (the flooring of Madge Pimentel et al. 2025). The
+#' statistic is the drop in deviance between the two models divided by the
+#' dispersion estimated from the deviance of the null model, `df0 * (D0 -
+#' D1) / D0`, which does not depend on the dispersion assumed (the size of a
+#' negative binomial is fixed at its estimate), and its p-value comes from
+#' resampling whole experimental units under the null model with the
+#' PIT-trap (Warton et al. 2017): the probability integral
+#' transform residuals of each unit are resampled, at all its times
+#' together, and turned back into values with the quantile function of the
+#' null model. The test does not rely on the asymptotic distribution of the
+#' estimates and handles combinations with only zeros (no `"boundary"`
+#' status). In simulated 2 x 2 experiments with four units per combination
+#' (negative binomial counts, Tweedie densities, gamma and Gaussian
+#' responses), the resampling tests rejected a true AD or MU in 2.7–5.7% of
+#' the experiments, the post-estimation tests in 3.0–7.0%, and both detected
+#' the other null model about as often. With all times together (`time = "overall"`) it tests that there
+#' is no interaction at any time (one degree of freedom per time; note
+#' `"joint_over_times"`), not that the average interaction is zero. Madge
+#' Pimentel et al. (2025) advise against identity and log links fitted to
+#' distributions bounded at zero, because the fits fail and their intervals
+#' are biased: here the means are fitted with their bounds and the intervals
+#' are not taken from these models. Proportions, other distributions and
+#' sets whose units cannot be resampled whole (fewer than two units in a
+#' cell, units sampled a different number of times, or a stressor applied
+#' to whole groups of units, whose groups are its replicates) keep the
+#' post-estimation test (note `"resampling_not_available"`, reason in
+#' `reason`). The models have no random effects (units are resampled
+#' whole), and the dispersion of `dispersion = "cell"` fits is replaced by
+#' one dispersion. DO, BL, SAM and CA have no link function and are not
+#' available; neither are fits with `time_structure = "additive"`.
 #'
 #' **Multiple testing.** p-values are adjusted within each response, null
 #' model, component, stressor and estimand, across contrast sets, sampling
@@ -546,6 +614,11 @@
 #' effects. *Frontiers in Ecology and Evolution*, 6, 166.
 #' \doi{10.3389/fevo.2018.00166}
 #'
+#' Warton, D. I., Thibaut, L. & Wang, Y. A. (2017). The PIT-trap—A
+#' "model-free" bootstrap procedure for inference about regression models
+#' with discrete, multivariate responses. *PLoS ONE*, 12(7), e0181790.
+#' \doi{10.1371/journal.pone.0181790}
+#'
 #' @examples
 #' jars <- expand.grid(
 #'   salinity = c("ambient", "high"),
@@ -580,6 +653,11 @@
 #' bl <- estimate_interactions(fits, null_models = "BL", n_sim = 2000, seed = 1)
 #' bl$estimates[bl$estimates$component == "interaction",
 #'   c("estimate", "lower", "upper", "p_value", "rescaled", "rescaled_class")]
+#' # AD and MU tested by resampling the jars under each null model
+#' rs <- estimate_interactions(fits, null_models = c("AD", "MU"), inference = "resampling",
+#'   n_sim = 2000, n_boot = 199, seed = 1)
+#' rs$estimates[rs$estimates$component == "interaction",
+#'   c("null_model", "estimate", "lower", "upper", "p_value", "inference")]
 #' @examplesIf requireNamespace("emmeans", quietly = TRUE)
 #' # A model fitted outside must
 #' model <- stats::glm(algae ~ salinity * warming, family = stats::poisson(), data = jars)
@@ -597,22 +675,41 @@ estimate_interactions.must_fit <- function(fit, null_models = "AD",
                                            correction = "small_sample", n_sim = 10000L,
                                            level = 0.95, p_adjust = "BH", overall = TRUE,
                                            sensitivity = NULL, seed = NULL, sam_shape = 3.2,
-                                           margin = NULL, ...) {
+                                           margin = NULL, n_boot = 999L, ...) {
   call <- generic_call("estimate_interactions")
   check_dots_empty(..., call = call)
   opts <- check_estimate_options(null_models, inference, correction, n_sim, level, p_adjust,
-                                 overall, seed, sam_shape, margin, call = call)
+                                 overall, seed, sam_shape, margin, resampling = TRUE,
+                                 call = call)
+  resampling <- identical(inference, "resampling")
+  if (resampling) {
+    check_resampling_options(opts, fit, n_boot, call = call)
+    opts$n_boot <- as.integer(n_boot)
+  }
   sensitivity <- check_sensitivity(sensitivity, names(fit$fits), call = call)
   check_choice_sensitivity(opts$null_model_choice, sensitivity, call = call)
   seed_given <- !is.null(seed)
   opts$seed <- resolve_seed(seed)
+  # The estimates and intervals are always those of the post-estimation
+  # inference; resampling only replaces the tests of the net interactions.
+  pei <- opts
+  if (resampling) {
+    pei$inference <- "simulation"
+  }
   run <- function() {
     lapply(fit$fits, function(f) {
-      estimate_one_response(f, design = fit$design, opts = opts,
+      estimate_one_response(f, design = fit$design, opts = pei,
                             sensitive = f$response %in% sensitivity)
     })
   }
   parts <- withr::with_seed(opts$seed, run())
+  if (resampling) {
+    # Run after the post-estimation draws, from the seed again, so that those
+    # draws are the same as with inference = "simulation".
+    parts <- withr::with_seed(opts$seed, Map(function(rows, f) {
+      if (identical(f$status, "ok")) resample_interactions(rows, f, fit$design, opts) else rows
+    }, parts, fit$fits))
+  }
   failed <- vapply(fit$fits, function(f) !identical(f$status, "ok"), logical(1))
   new_interactions(
     parts, fit$design, opts, sensitivity,
@@ -642,7 +739,7 @@ estimate_interactions.must_fit <- function(fit, null_models = "AD",
 # advance the random number stream.
 check_estimate_options <- function(null_models, inference, correction, n_sim, level,
                                    p_adjust, overall, seed, sam_shape, margin = NULL,
-                                   call = sys.call(-1)) {
+                                   resampling = FALSE, call = sys.call(-1)) {
   # The output of suggest_null_models(): its null models, and its criteria and
   # reasons for the settings.
   choice <- NULL
@@ -651,7 +748,13 @@ check_estimate_options <- function(null_models, inference, correction, n_sim, le
     null_models <- null_models$null_models
   }
   null_models <- check_null_models(null_models, call = call)
-  check_choice(inference, c("simulation", "delta"), call = call)
+  if (identical(inference, "resampling") && !resampling) {
+    abort_input(paste(
+      'inference = "resampling" refits the models of fit_responses() and needs its',
+      'output; for a model fitted outside must use "simulation" or "delta".'
+    ), call = call)
+  }
+  check_choice(inference, c("simulation", "delta", if (resampling) "resampling"), call = call)
   check_choice(correction, c("small_sample", "none"), call = call)
   if (identical(inference, "delta") && "DO" %in% null_models) {
     abort_input(paste(
@@ -686,6 +789,35 @@ check_estimate_options <- function(null_models, inference, correction, n_sim, le
        seed = NULL, sam_shape = sam_shape, margin = margin, null_model_choice = choice)
 }
 
+# Options of inference = "resampling": the null models that are GLM
+# constraints (AD and MU), sampling times with their own means, and the
+# number of resamples.
+check_resampling_options <- function(opts, fit, n_boot, call = sys.call(-1)) {
+  other <- setdiff(opts$null_models, c("AD", "MU"))
+  if (length(other) > 0L) {
+    abort_input(sprintf(
+      paste(
+        'inference = "resampling" tests AD and MU, the null models that a GLM can',
+        "express (an identity and a log link); %s %s no link function. Estimate %s",
+        'with inference = "simulation" or "delta".'
+      ),
+      format_items(quote_items(other), max = Inf), if (length(other) == 1L) "has" else "have",
+      if (length(other) == 1L) "it" else "them"
+    ), call = call)
+  }
+  if (identical(fit$settings$time_structure, "additive")) {
+    abort_input(paste(
+      'inference = "resampling" tests each sampling time with its own means; it is not',
+      'available for fits with time_structure = "additive".'
+    ), call = call)
+  }
+  check_number(n_boot, lower = 99, call = call)
+  if (n_boot != round(n_boot)) {
+    abort_input("`n_boot` must be a whole number.", call = call)
+  }
+  invisible(opts)
+}
+
 # The output object, from the rows estimated for each response.
 new_interactions <- function(parts, design, opts, sensitivity, settings, diagnostics) {
   estimates <- bind_rows_base(parts, template = empty_estimates(design))
@@ -698,7 +830,8 @@ new_interactions <- function(parts, design, opts, sensitivity, settings, diagnos
         opts[c("null_models", "inference", "correction", "n_sim", "level", "p_adjust",
                "overall")],
         list(sensitivity = sensitivity, seed = opts$seed, sam_shape = opts$sam_shape,
-             margin = opts$margin, null_model_choice = opts$null_model_choice),
+             margin = opts$margin, null_model_choice = opts$null_model_choice,
+             n_boot = opts$n_boot),
         settings
       ),
       diagnostics = diagnostics
@@ -890,10 +1023,18 @@ set_estimates <- function(s, sc, idx, time_value, pred, opts, f, design, df, sen
       if (identical(nm, "SAM")) {
         sp$shape <- opts$sam_shape
       }
-      ca_interaction <- identical(nm, "CA") && identical(sp$estimand, "net")
+      # The net concentration-addition interaction and the combined effect it
+      # expects need the dose-response curves (the expectation without the
+      # combination itself).
+      ca_interaction <- identical(nm, "CA") &&
+        (identical(sp$estimand, "net") || identical(sp$component, "expected"))
       if (ca_interaction && isTRUE(ca$ok)) {
-        sp$cols <- ca$cols
-        sp$labels <- ca$labels
+        keep <- seq_along(ca$cols)
+        if (identical(sp$component, "expected")) {
+          keep <- keep[-length(keep)]
+        }
+        sp$cols <- ca$cols[keep]
+        sp$labels <- ca$labels[keep]
         sp$ca <- ca$ca
       }
       values <- if (identical(nm, "DO") && m > 2L) {
@@ -968,7 +1109,9 @@ add_note <- function(note, extra) {
   if (nzchar(note)) paste(note, extra, sep = "; ") else extra
 }
 
-# Which quantities are reported for each null model.
+# Which quantities are reported for each null model: the single effects, the
+# combined effect the null model expects from them, the observed combined
+# effect and the interactions (only the interaction for DO).
 component_specs <- function(null_model, m, in_set, w) {
   interaction <- list(list(component = "interaction", stressor = NA_character_,
                            estimand = "net", weights = w$net))
@@ -979,6 +1122,8 @@ component_specs <- function(null_model, m, in_set, w) {
     list(component = "single", stressor = in_set[[i]], estimand = NA_character_,
          weights = w$single[[i]])
   })
+  expected <- list(list(component = "expected", stressor = NA_character_,
+                        estimand = NA_character_, weights = w$expected))
   combined <- list(list(component = "combined", stressor = NA_character_,
                         estimand = NA_character_, weights = w$combined))
   pure <- if (m >= 3L) {
@@ -987,7 +1132,7 @@ component_specs <- function(null_model, m, in_set, w) {
   } else {
     list()
   }
-  c(singles, combined, interaction, pure)
+  c(singles, expected, combined, interaction, pure)
 }
 
 # Cells that concentration addition needs for a set at one time: the
@@ -1083,10 +1228,22 @@ compute_component <- function(null_model, sp, idx, m, pred, inference, level, f,
                         level, inference))
   }
   at_boundary <- pred$at_boundary[cols]
+  is_expected <- identical(sp$component, "expected")
   if (!is.null(sp$ca)) {
     # Doses alone with only zeros keep their means fixed at the boundary and
     # still inform the curves; the reference and the combination do not.
-    at_boundary[-c(1L, length(cols))] <- FALSE
+    at_boundary[-(if (is_expected) 1L else c(1L, length(cols)))] <- FALSE
+  }
+  if (any(at_boundary) && is_expected) {
+    # The expected combined effect does not use the combination; with the
+    # reference or a stressor alone at the boundary it has no interval.
+    return(empty_values("not_estimable", sprintf(
+      paste(
+        "%s had only zeros: with the response eliminated in the reference cell",
+        "or by a stressor alone, the expected combined effect cannot be estimated."
+      ),
+      format_items(quote_items(short_cells(labels[at_boundary], design$spec$control)), max = 3L)
+    ), level, inference))
   }
   if (any(at_boundary)) {
     return(boundary_component(null_model, sp, idx, use, m, pred, level, f, df, sc, design))
@@ -1206,6 +1363,10 @@ compute_component <- function(null_model, sp, idx, m, pred, inference, level, f,
   if (nzchar(rel$note)) {
     note <- add_note(note, rel$note)
   }
+  # The expected combined effect has an interval but is not tested.
+  if (is_expected) {
+    stats_list$p_value <- NA_real_
+  }
   list(
     estimate = estimate, se = stats_list$se, lower = stats_list$lower,
     upper = stats_list$upper, level = level, df = df, p_value = stats_list$p_value,
@@ -1311,7 +1472,7 @@ null_model_name <- function(null_model) {
 # needs stressors that reduce the response (Liess et al. 2016), and
 # concentration addition, single-stressor curves that decrease with dose.
 relative_assumption <- function(null_model, sp, mu, m, labels, design) {
-  if (!identical(sp$component, "interaction")) {
+  if (!sp$component %in% c("expected", "interaction")) {
     return(NULL)
   }
   if (identical(null_model, "SAM")) {
@@ -1581,6 +1742,10 @@ overall_estimates <- function(s, per_time, pred, inference, level, f, design,
       empty_values("not_estimable", "Not estimable (with an interval) at every sampling time.",
                    level, inference)
     }
+    if (identical(sp$component, "expected")) {
+      values$p_value <- NA_real_
+      values$mc_se <- NA_real_
+    }
     if (isTRUE(s$confounded)) {
       values$note <- add_note(values$note, "confounded_with_groups")
     }
@@ -1733,10 +1898,19 @@ print.must_interactions <- function(x, n = 12L, ...) {
   if (!is.null(s$model)) {
     cat(sprintf("Model: %s, %s; means from emmeans\n", s$model, s$families[[1L]]))
   }
+  inference <- switch(
+    s$inference,
+    simulation = sprintf("Krinsky-Robb simulation (%d draws)", s$n_sim),
+    resampling = sprintf(paste(
+      "Krinsky-Robb simulation (%d draws), with the net interactions under AD and MU",
+      "tested by resampling the units (%d resamples)"
+    ), s$n_sim, s$n_boot),
+    "delta method"
+  )
   cat(sprintf(
     "Inference: %s, %s; %s%% intervals; p-values adjusted with %s; seed %s\n",
-    if (identical(s$inference, "simulation")) sprintf("Krinsky-Robb simulation (%d draws)", s$n_sim) else "delta method",
-    correction_label(s, detail = TRUE), format(100 * s$level), s$p_adjust, format(s$seed)
+    inference, correction_label(s, detail = TRUE), format(100 * s$level), s$p_adjust,
+    format(s$seed)
   ))
   scales <- c(AD = "AD = differences (response scale)", MU = "MU = log ratios",
               DO = "DO = dominance (response scale)",

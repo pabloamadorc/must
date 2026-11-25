@@ -51,6 +51,106 @@ test_that("the small-sample correction reproduces the t intervals of lm()", {
   expect_output(print(none), "no small-sample correction")
 })
 
+test_that("the expected combined effect has the exact t interval of the summed single effects", {
+  d <- two_by_two_gaussian(dev = c(-1.3, -0.4, 0, 0.6, 1.1))
+  fit <- fit_2x2(d, "y", list(gaussian = stats::gaussian()))
+  est <- estimate_interactions(fit, null_models = "AD", inference = "delta")
+  e <- est$estimates
+  ex <- e[e$component == "expected", ]
+  net <- interaction_rows(est, "AD")
+  # The sum of the single effects, which is the combined effect minus the net
+  # interaction
+  expect_equal(ex$estimate, (8 - 10) + (7 - 10), tolerance = 1e-6)
+  expect_equal(ex$estimate, e$estimate[e$component == "combined"] - net$estimate,
+               tolerance = 1e-10)
+  # In lm(y ~ a * b) it is the sum of the two main-effect coefficients
+  ref <- stats::lm(y ~ a * b, data = d)
+  k <- c(0, 1, 1, 0)
+  se_ref <- sqrt(drop(t(k) %*% stats::vcov(ref) %*% k))
+  ci_ref <- sum(stats::coef(ref) * k) + c(-1, 1) * stats::qt(0.975, 16) * se_ref
+  expect_equal(ex$df, 16)
+  expect_equal(ex$se, se_ref, tolerance = 1e-5)
+  expect_equal(c(ex$lower, ex$upper), ci_ref, tolerance = 1e-5)
+  expect_true(is.na(ex$p_value) && is.na(ex$p_adjusted) && is.na(ex$mc_se))
+  expect_equal(ex$status, "ok")
+  # The same interval from the joint simulation draws, narrower than the one
+  # obtained by subtracting the limits of the combined effect and the interaction
+  sim <- estimate_interactions(fit, null_models = "AD", n_sim = 40000, seed = 5)
+  s <- sim$estimates
+  sx <- s[s$component == "expected", ]
+  expect_equal(c(sx$lower, sx$upper), ci_ref, tolerance = 0.03)
+  sc <- s[s$component == "combined", ]
+  si <- interaction_rows(sim, "AD")
+  naive <- c(sc$lower - si$upper, sc$upper - si$lower)
+  expect_lt(sx$upper - sx$lower, 0.8 * diff(naive))
+  expect_true(is.na(sx$p_value) && is.na(sx$mc_se))
+})
+
+test_that("the expected combined effect is the combined effect minus the net interaction", {
+  d <- two_by_two_counts()
+  fit <- fit_2x2(d, "count", list(poisson = stats::poisson()))
+  est <- estimate_interactions(fit, null_models = c("AD", "MU", "DO", "BL", "SAM"),
+                               n_sim = 2000, seed = 3)
+  e <- est$estimates
+  # Cell means 20, 10, 14 and 5
+  hand <- c(AD = (10 - 20) + (14 - 20), MU = log(10 / 20) + log(14 / 20), BL = 0.5 * 0.7 - 1,
+            SAM = sam_expected(matrix(c(0.5, 0.7), nrow = 1), 3.2) - 1)
+  for (nm in names(hand)) {
+    x <- e[e$null_model == nm, ]
+    ex <- x[x$component == "expected", ]
+    int <- x[x$component == "interaction", ]
+    expect_equal(ex$estimate, unname(hand[[nm]]), tolerance = 1e-5)
+    expect_equal(ex$estimate, x$estimate[x$component == "combined"] - int$estimate,
+                 tolerance = 1e-8)
+    # On the scale of the expected combined response reported with the interaction
+    expect_equal(ex$estimate,
+                 switch(nm, AD = int$expected - 20, MU = log(int$expected / 20),
+                        int$expected / 20 - 1),
+                 tolerance = 1e-5)
+    expect_true(ex$lower <= ex$estimate && ex$estimate <= ex$upper)
+    expect_true(is.na(ex$p_value))
+  }
+  # The dominance model reports the interaction only
+  expect_false(any(e$component[e$null_model == "DO"] == "expected"))
+  expect_true(all(is.na(e$p_adjusted[e$component == "expected"])))
+})
+
+test_that("the expected combined effect is averaged over times like the other effects", {
+  d <- repeated_counts()
+  des <- describe_design(d, c("a", "b"), control = c(a = "0", b = "0"),
+                         unit = "tank", time = "day")
+  fit <- fit_responses(d, "count", des, families = list(poisson = stats::poisson()),
+                       residual_checks = FALSE, quiet = TRUE)
+  est <- estimate_interactions(fit, null_models = "AD", inference = "delta")
+  e <- est$estimates
+  ex <- e[e$component == "expected", ]
+  by_time <- ex[ex$time != "overall", ]
+  overall <- ex[ex$time == "overall", ]
+  expect_equal(nrow(overall), 1L)
+  expect_equal(overall$estimate, mean(by_time$estimate), tolerance = 1e-10)
+  expect_true(overall$lower < overall$estimate && overall$estimate < overall$upper)
+  expect_true(all(ex$status == "ok") && all(is.na(ex$p_value)))
+})
+
+test_that("the expected combined effect does not use a combination with only zeros", {
+  d <- zero_combination_counts()
+  fit <- fit_2x2(d, "y", list(poisson = stats::poisson()))
+  est <- estimate_interactions(fit, null_models = c("AD", "MU"), n_sim = 1000, seed = 1)
+  e <- est$estimates
+  expect_equal(e$status[e$component == "interaction"], c("boundary", "boundary"))
+  ex <- e[e$component == "expected", ]
+  expect_equal(ex$status, c("ok", "ok"))
+  expect_true(all(ex$lower < ex$estimate & ex$estimate < ex$upper))
+  # With a stressor alone at the boundary it cannot be estimated
+  alone <- zero_combination_counts()
+  alone$y[alone$a == "1" & alone$b == "0"] <- 0
+  fit_alone <- fit_2x2(alone, "y", list(poisson = stats::poisson()))
+  est_alone <- estimate_interactions(fit_alone, null_models = "AD", n_sim = 1000, seed = 1)
+  ea <- est_alone$estimates
+  expect_equal(ea$status[ea$component == "expected"], "not_estimable")
+  expect_match(ea$reason[ea$component == "expected"], "'a=1' had only zeros", fixed = TRUE)
+})
+
 test_that("families without dispersion keep the normal distribution", {
   d <- two_by_two_counts()
   fit <- fit_2x2(d, "count", list(poisson = stats::poisson()))
@@ -450,6 +550,8 @@ test_that("the covariance of the fixed effects is rebuilt when vcov() of glmmTMB
 test_that("the probability of zeros allows for overdispersion and random effects", {
   expect_equal(prob_boundary_obs("poisson", 2, NA, NA, NA, "zero"), exp(-2))
   expect_equal(prob_boundary_obs("nbinom2", 2, NA, 1.5, NA, "zero"), stats::dnbinom(0, size = 1.5, mu = 2))
+  expect_equal(prob_boundary_obs("nbinom1", 2, NA, 1.5, NA, "zero"),
+               stats::dnbinom(0, size = 2 / 1.5, mu = 2))
   expect_equal(prob_boundary_obs("binomial", 0.2, 10, NA, NA, "zero"), 0.8^10)
   expect_equal(prob_boundary_obs("binomial", 0.9, 10, NA, NA, "one"), 0.9^10)
   rows <- data.frame(.unit = c("u1", "u1", "u2"))
@@ -485,6 +587,17 @@ test_that("observations that share a random-effect level share their intercept",
   w <- stats::dnorm(b) * diff(b)[1]
   room <- sum(w * exp(-2 * 1.5 * exp(0.8 * b)))
   expect_equal(by_room, room^2, tolerance = 1e-4)
+})
+
+test_that("a combination with only zeros is tested under a NB1 model", {
+  d <- zero_combination_counts()
+  d$y[d$b == "0" | d$a == "0"] <- c(10, 31, 22, 14, 27, 9, 25, 14, 20, 6, 12, 4, 17, 9, 15)
+  fit <- fit_2x2(d, "y", list(nbinom1 = glmmTMB::nbinom1()))
+  expect_equal(fit$fits$y$family, "nbinom1")
+  est <- estimate_interactions(fit, null_models = "AD", n_sim = 1000, seed = 1)
+  int <- interaction_rows(est, "AD")
+  expect_equal(int$status, "boundary")
+  expect_true(is.finite(int$p_value))
 })
 
 test_that("a single stressor that eliminates the response is tested, its interaction is not", {
@@ -633,8 +746,16 @@ test_that("Bliss estimates and delta standard errors match hand calculations", {
   bl <- est$estimates[est$estimates$null_model == "BL", ]
   # Cell means 20, 10, 14 and 5: w = (1, 0.5, 0.7, 0.25)
   w <- c(1, 0.5, 0.7, 0.25)
-  expect_equal(bl$estimate, c(-0.5, -0.3, -0.75, 0.25 - 0.35), tolerance = 1e-5)
-  expect_equal(bl$scale, rep("response / control", 4))
+  expect_equal(bl$component, c("single", "single", "expected", "combined", "interaction"))
+  expect_equal(bl$estimate, c(-0.5, -0.3, 0.35 - 1, -0.75, 0.25 - 0.35), tolerance = 1e-5)
+  expect_equal(bl$scale, rep("response / control", 5))
+  # Expected combined effect wA wB - 1: gradient (-2 wA wB, wA wB, wA wB) with
+  # respect to (eta0, etaA, etaB); it is not tested
+  ex <- bl[bl$component == "expected", ]
+  expect_equal(ex$se, sqrt((2 * 0.35)^2 / 100 + 0.35^2 / 50 + 0.35^2 / 70), tolerance = 1e-4)
+  expect_equal(c(ex$lower, ex$upper), ex$estimate + c(-1, 1) * stats::qnorm(0.975) * ex$se,
+               tolerance = 1e-8)
+  expect_true(is.na(ex$p_value) && is.na(ex$p_adjusted))
   int <- bl[bl$component == "interaction", ]
   expect_equal(int$expected, 20 * 0.35, tolerance = 1e-5)
   expect_equal(int$rescaled, -0.1 / 0.35, tolerance = 1e-4)
@@ -733,9 +854,11 @@ test_that("stress addition estimates match the model of Liess et al. (2016)", {
   est <- estimate_interactions(fit, null_models = c("BL", "SAM"), inference = "delta")
   e <- est$estimates
   sam <- e[e$null_model == "SAM", ]
-  expect_equal(sam$estimate[sam$component != "interaction"],
-               e$estimate[e$null_model == "BL" & e$component != "interaction"])
+  observed <- c("single", "combined")
+  expect_equal(sam$estimate[sam$component %in% observed],
+               e$estimate[e$null_model == "BL" & e$component %in% observed])
   w_sam <- sam_expected(matrix(c(0.5, 0.7), nrow = 1), 3.2)
+  expect_equal(sam$estimate[sam$component == "expected"], w_sam - 1, tolerance = 1e-5)
   int <- sam[sam$component == "interaction", ]
   expect_equal(int$estimate, 0.25 - w_sam, tolerance = 1e-5)
   expect_equal(int$expected, 20 * w_sam, tolerance = 1e-4)
@@ -774,7 +897,10 @@ test_that("concentration addition is not defined without dose-response curves", 
   e <- est$estimates
   expect_equal(e$status[e$component == "interaction"], "not_defined")
   expect_match(e$reason[e$component == "interaction"], "at least two doses of 'a' alone")
-  expect_true(all(e$status[e$component != "interaction"] == "ok"))
+  # The expected combined effect needs the same curves
+  expect_equal(e$status[e$component == "expected"], "not_defined")
+  expect_equal(e$reason[e$component == "expected"], e$reason[e$component == "interaction"])
+  expect_true(all(e$status[e$component %in% c("single", "combined")] == "ok"))
   text <- two_by_two_counts()
   text$a <- ifelse(text$a == "1", "high", "none")
   des2 <- describe_design(text, c("a", "b"), control = c(a = "none", b = "0"), unit = "id")
@@ -801,6 +927,13 @@ test_that("concentration addition finds no interaction in data that follow it", 
   expect_gt(max(abs(int$estimate[int$null_model == "BL"])), 0.05)
   # Expected = y0 * w_CA; the simulation agrees with the delta method
   expect_equal(ca$expected, ca$observed, tolerance = 1e-4)
+  # The expected combined effect w_CA - 1, on the scale of the combined effect
+  all_ca <- est$estimates[est$estimates$null_model == "CA", ]
+  ex <- all_ca[all_ca$component == "expected", ]
+  combined <- all_ca[all_ca$component == "combined", ]
+  expect_equal(ex$set_id, ca$set_id)
+  expect_equal(ex$estimate, combined$estimate - ca$estimate, tolerance = 1e-8)
+  expect_true(all(ex$status == "ok" & ex$lower < ex$estimate & ex$estimate < ex$upper))
   sim <- estimate_interactions(fit, null_models = "CA", n_sim = 4000, seed = 2)
   sim_int <- sim$estimates[sim$estimates$component == "interaction", ]
   expect_equal(sim_int$se, ca$se, tolerance = 0.1)
@@ -842,6 +975,16 @@ test_that("a combination with only zeros is tested against concentration additio
   expect_true(all(int$observed == 0))
   expect_true(all(is.finite(int$p_value)))
   expect_lt(int$expected[int$null_model == "CA"], 25 / 4)
+  # The expected combined effect does not use the combination: it keeps its
+  # interval. Under stress addition the two stressors alone already exceed the
+  # stress that any individual tolerates, in every draw.
+  ex <- est$estimates[est$estimates$component == "expected" &
+                        est$estimates$levels == "a=4 | b=10", ]
+  expect_equal(ex$status, c("ok", "ok"))
+  ca_ex <- ex[ex$null_model == "CA", ]
+  expect_true(ca_ex$lower < ca_ex$estimate && ca_ex$estimate < ca_ex$upper)
+  expect_equal(unlist(ex[ex$null_model == "SAM", c("estimate", "lower", "upper")]),
+               c(estimate = -1, lower = -1, upper = -1))
 })
 
 test_that("stress addition and concentration addition give no pure interaction", {

@@ -187,3 +187,29 @@ three_way_repeated <- function() {
   rownames(d) <- NULL
   d
 }
+
+# 2 x 2 factorial, four tanks per cell sampled twice, with deterministic
+# counts of five taxa and a positive biomass: sp1 is overdispersed, sp2
+# increases with `a`, sp3 is eliminated by the combination, sp4 does not
+# respond and sp5 only appears with `a` alone.
+community_counts <- function() {
+  tanks <- expand.grid(a = c("0", "1"), b = c("0", "1"), rep = 1:4, stringsAsFactors = FALSE)
+  tanks$tank <- paste0("T", seq_len(nrow(tanks)))
+  d <- tanks[rep(seq_len(nrow(tanks)), times = 2), ]
+  d$day <- rep(c(7, 14), each = nrow(tanks))
+  a <- d$a == "1"
+  b <- d$b == "1"
+  late <- d$day == 14
+  p1 <- c(0.15, 0.4, 0.6, 0.85)[d$rep]
+  p2 <- c(0.6, 0.15, 0.85, 0.4)[d$rep]
+  p3 <- c(0.4, 0.85, 0.15, 0.6)[d$rep]
+  d$sp1 <- stats::qnbinom(p1, size = 4,
+                          mu = 40 * ifelse(a, 0.5, 1) * ifelse(b, 0.7, 1) * ifelse(late, 1.2, 1))
+  d$sp2 <- stats::qnbinom(p2, size = 4, mu = 25 * ifelse(a, 1.6, 1) * ifelse(b, 0.6, 1))
+  d$sp3 <- stats::qpois(p3, ifelse(a & b, 0, 4 * ifelse(a, 0.5, 1)))
+  d$sp4 <- stats::qpois(p1, 10 * ifelse(late, 0.8, 1))
+  d$sp5 <- stats::qpois(p2, ifelse(a & !b, 6, 0))
+  d$mass <- round(5 + 3 * p3 + ifelse(a, -1.5, 0) + 0.5 * late, 2)
+  rownames(d) <- NULL
+  d
+}

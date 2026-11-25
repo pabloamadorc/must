@@ -164,9 +164,12 @@ scale of the null model and relative to the reference cell of the set
 (the control, or the background levels with \code{background = "all"} in
 \code{\link[=describe_design]{describe_design()}}): differences in response units for AD, differences
 of logarithms for MU and responses relative to the reference for BL, SAM
-and CA. The combined effect expected under the null model is the
-observed combined effect minus the net interaction; its interval is not
-computed, so it is drawn without one.
+and CA. The combined effect expected under the null model
+(\code{component = "expected"} in the estimates) is drawn with its interval;
+it is not tested, so it is an open diamond. The net interaction is the
+observed combined effect minus the expected one. In \code{type = "time"} the
+series are drawn slightly apart at each time, so that their intervals do
+not overlap.
 
 What the rows of a page share (the \code{by} group, the sampling time) is
 written under the title rather than in every label.

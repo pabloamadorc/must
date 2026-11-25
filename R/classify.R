@@ -312,6 +312,8 @@ class_meaning <- function(class, null_model) {
     BL = "the Bliss independence expectation",
     SAM = "the stress addition expectation",
     CA = "the concentration addition expectation",
+    AD_taxa = "the community expected by adding the effects on each taxon",
+    MU_taxa = "the community expected by multiplying the effects on each taxon",
     "the sum of the single effects"
   )
   switch(

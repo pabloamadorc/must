@@ -114,9 +114,12 @@
 #' (the control, or the background levels with `background = "all"` in
 #' [describe_design()]): differences in response units for AD, differences
 #' of logarithms for MU and responses relative to the reference for BL, SAM
-#' and CA. The combined effect expected under the null model is the
-#' observed combined effect minus the net interaction; its interval is not
-#' computed, so it is drawn without one.
+#' and CA. The combined effect expected under the null model
+#' (`component = "expected"` in the estimates) is drawn with its interval;
+#' it is not tested, so it is an open diamond. The net interaction is the
+#' observed combined effect minus the expected one. In `type = "time"` the
+#' series are drawn slightly apart at each time, so that their intervals do
+#' not overlap.
 #'
 #' What the rows of a page share (the `by` group, the sampling time) is
 #' written under the title rather than in every label.
@@ -380,6 +383,20 @@ plot_time_order <- function(time) {
 
 # Rows with the given component of the same estimate as row `i` of `d` (same
 # response, group, time, set and null model).
+# The combined effect expected under the null model for interaction i of
+# `d`, with its interval. Estimates made before must 0.3.0.9000 have no
+# `"expected"` rows: the point is then the combined effect minus the
+# interaction (`fallback`), without interval.
+plot_expected <- function(est, d, i, fallback) {
+  row <- plot_same_set(est, d, i, "expected")
+  if (nrow(row) > 0L) {
+    return(list(estimate = row$estimate[[1L]], lower = row$lower[[1L]],
+                upper = row$upper[[1L]], status = row$status[[1L]]))
+  }
+  list(estimate = fallback, lower = NA_real_, upper = NA_real_,
+       status = if (is.na(fallback)) "not_estimable" else "ok")
+}
+
 plot_same_set <- function(est, d, i, component) {
   same_time <- if (is.na(d$time[[i]])) {
     is.na(est$time)
@@ -585,8 +602,9 @@ plot_palette <- function() {
     ink = "#2b2b2a", soft = "#6b6a66", faint = "#9b9a96",
     interaction = "#2a78d6", combined = "#202020",
     models = c(AD = "#2a78d6", MU = "#eb6834", DO = "#1baf7a", BL = "#eda100",
-               SAM = "#e87ba4", CA = "#008300"),
-    model_pch = c(AD = 21, MU = 22, DO = 24, BL = 23, SAM = 25, CA = 21),
+               SAM = "#e87ba4", CA = "#008300", AD_taxa = "#13a38a", MU_taxa = "#ad3f9a"),
+    model_pch = c(AD = 21, MU = 22, DO = 24, BL = 23, SAM = 25, CA = 21, AD_taxa = 24,
+                  MU_taxa = 25),
     singles = c("#0072B2", "#D55E00", "#009E73", "#CC79A7", "#56B4E9", "#E69F00"),
     single_pch = c(21, 22, 24, 25, 23)
   )
@@ -705,20 +723,20 @@ plot_effects <- function(x, opts) {
     in_set <- strsplit(d$stressors[[i]], " x ", fixed = TRUE)[[1L]]
     singles <- singles[order(match(singles$stressor, in_set)), , drop = FALSE]
     n <- nrow(singles)
-    expected <- combined$estimate - d$estimate[[i]]
-    expected_status <- if (is.na(expected)) "not_estimable" else "ok"
+    expected <- plot_expected(est, d, i, combined$estimate - d$estimate[[i]])
     block <- data.frame(
       component = c(rep("single", n), if (net) "expected", "combined", "interaction"),
       stressor = c(singles$stressor, rep(NA_character_, net + 2L)),
       label = c(paste(plot_stressor_names(singles$stressor, opts), "alone"),
-                if (net) "Combined, expected (no interval)", "Combined, observed",
+                if (net) "Combined, expected", "Combined, observed",
                 if (net) "Net interaction" else "Pure interaction"),
-      estimate = c(singles$estimate, if (net) expected, combined$estimate, d$estimate[[i]]),
-      lower = c(singles$lower, if (net) NA_real_, combined$lower, d$lower[[i]]),
-      upper = c(singles$upper, if (net) NA_real_, combined$upper, d$upper[[i]]),
+      estimate = c(singles$estimate, if (net) expected$estimate, combined$estimate,
+                   d$estimate[[i]]),
+      lower = c(singles$lower, if (net) expected$lower, combined$lower, d$lower[[i]]),
+      upper = c(singles$upper, if (net) expected$upper, combined$upper, d$upper[[i]]),
       p_adjusted = c(singles$p_adjusted, if (net) NA_real_, combined$p_adjusted,
                      d$p_adjusted[[i]]),
-      status = c(singles$status, if (net) expected_status, combined$status, d$status[[i]]),
+      status = c(singles$status, if (net) expected$status, combined$status, d$status[[i]]),
       class_code = c(rep("", n + net + 1L), d$class_code[[i]]),
       header = header[[i]], block = i, stringsAsFactors = FALSE
     )
@@ -1121,7 +1139,7 @@ plot_time <- function(x, opts) {
   est <- x$estimates
   numeric_time <- suppressWarnings(as.numeric(est$time))
   keep <- est$response == opts$response & est$null_model == opts$null_model &
-    (est$component %in% c("single", "combined") |
+    (est$component %in% c("single", "expected", "combined") |
        (est$component == "interaction" & est$estimand %in% "net")) &
     is.finite(numeric_time) & plot_filter(est, opts)
   d <- est[keep, , drop = FALSE]
@@ -1169,12 +1187,23 @@ plot_time <- function(x, opts) {
       abort_input(sprintf("Set %s has no effects of its stressors alone over time to plot.",
                           first$set_id), call = opts$call)
     }
-    expected <- combined$estimate - interaction$estimate
-    expected[is.nan(expected)] <- NA_real_
+    expected <- take("expected")
+    if (all(is.na(expected$set_id))) {
+      # Estimates made before must 0.3.0.9000: the point only.
+      expected <- combined
+      expected$component <- "expected"
+      expected$estimate <- combined$estimate - interaction$estimate
+      expected$estimate[is.nan(expected$estimate)] <- NA_real_
+      expected$lower <- NA_real_
+      expected$upper <- NA_real_
+    }
+    expected$p_adjusted <- NA_real_
     lim_top <- if (is.null(opts$ylim)) {
-      plot_limits(c(unlist(lapply(singles, `[[`, "estimate")), expected, combined$estimate),
-                  c(unlist(lapply(singles, `[[`, "lower")), combined$lower),
-                  c(unlist(lapply(singles, `[[`, "upper")), combined$upper), pad = 0.09)
+      plot_limits(c(unlist(lapply(singles, `[[`, "estimate")), expected$estimate,
+                    combined$estimate),
+                  c(unlist(lapply(singles, `[[`, "lower")), expected$lower, combined$lower),
+                  c(unlist(lapply(singles, `[[`, "upper")), expected$upper, combined$upper),
+                  pad = 0.09)
     } else {
       opts$ylim
     }
@@ -1216,22 +1245,26 @@ plot_time <- function(x, opts) {
     graphics::title(ylab = paste0("Effect vs. reference\n", first$scale), line = ylab_line,
                     cex.lab = 0.9)
     graphics::abline(h = 0, lty = 2, col = pal$faint)
+    # The series side by side at each time, so that their intervals do not
+    # overlap: singles, expected, observed.
+    shift <- series_shift(length(singles) + 2L, times, xlim)
     for (j in seq_along(singles)) {
-      draw_series(times, singles[[j]]$estimate, singles[[j]]$lower, singles[[j]]$upper,
-                  singles[[j]]$p_adjusted, colors[[j]], pch[[j]], 1, lim_top, opts$alpha)
+      draw_series(times + shift[[j]], singles[[j]]$estimate, singles[[j]]$lower,
+                  singles[[j]]$upper, singles[[j]]$p_adjusted, colors[[j]], pch[[j]], 1,
+                  lim_top, opts$alpha)
     }
-    none <- rep(NA_real_, length(times))
-    draw_series(times, expected, none, none, none, pal$soft, 23, 2, lim_top, opts$alpha,
-                expected = TRUE)
-    draw_series(times, combined$estimate, combined$lower, combined$upper, combined$p_adjusted,
-                pal$combined, 21, 1, lim_top, opts$alpha)
+    k <- length(singles)
+    draw_series(times + shift[[k + 1L]], expected$estimate, expected$lower, expected$upper,
+                expected$p_adjusted, pal$soft, 23, 2, lim_top, opts$alpha, expected = TRUE)
+    draw_series(times + shift[[k + 2L]], combined$estimate, combined$lower, combined$upper,
+                combined$p_adjusted, pal$combined, 21, 1, lim_top, opts$alpha)
     graphics::title("Single and combined effects", line = 3.3, cex.main = 0.85)
     y_legend <- graphics::grconvertY(graphics::grconvertY(1, from = "npc", to = "inches") + 0.1,
                                      from = "inches", to = "user")
     graphics::legend(x = mean(xlim), y = y_legend, xjust = 0.5, yjust = 0, xpd = NA, bty = "n",
                      cex = 0.72, text.col = pal$ink,
                      legend = c(paste(plot_stressor_names(in_set, opts), "alone"),
-                                "Combined, expected (no interval)", "Combined, observed"),
+                                "Combined, expected", "Combined, observed"),
                      col = c(colors, pal$soft, pal$combined), pch = c(pch, 23, 21),
                      pt.bg = c(colors, "white", pal$combined),
                      lty = c(rep(1, length(singles)), 2, 1),
@@ -1271,14 +1304,8 @@ plot_time <- function(x, opts) {
                             "detected; NC = not classified."),
                       outer = TRUE, side = 1, line = 0.05, cex = 0.6, col = pal$soft)
     }
-    expected_rows <- combined
-    expected_rows$component <- "expected"
-    expected_rows$estimate <- expected
-    expected_rows$lower <- NA_real_
-    expected_rows$upper <- NA_real_
-    expected_rows$p_adjusted <- NA_real_
     columns <- setdiff(names(interaction), "class_code")
-    drawn <- rbind(do.call(rbind, singles)[columns], expected_rows[columns], combined[columns],
+    drawn <- rbind(do.call(rbind, singles)[columns], expected[columns], combined[columns],
                    interaction[columns])
     drawn <- drawn[!is.na(drawn$set_id), , drop = FALSE]
     drawn$estimand <- "net"
@@ -1288,6 +1315,14 @@ plot_time <- function(x, opts) {
     out[[s]] <- plot_result(drawn)
   }
   do.call(rbind, out)
+}
+
+# Horizontal offsets of `n` series drawn at the same `times`: 1.2% of the
+# axis apart, and together within half of the shortest gap between times.
+series_shift <- function(n, times, xlim) {
+  gap <- if (length(times) > 1L) min(diff(times)) else diff(xlim)
+  step <- min(0.012 * diff(xlim), 0.5 * gap / n)
+  (seq_len(n) - (n + 1) / 2) * step
 }
 
 # Ticks of a vertical axis within `lim`, with labels as axis() would write

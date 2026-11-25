@@ -47,7 +47,17 @@ test_that("the default plot shows how each interaction arises from the single ef
   component <- function(x) out$estimate[out$component == x]
   expected <- component("combined") - component("interaction")
   expect_equal(out$estimate[out$component == "expected"], expected)
-  expect_true(is.na(out$lower[out$component == "expected"]))
+  # The expected combined effect is drawn with its interval from the estimates
+  ex <- e[e$component == "expected", ]
+  expect_equal(out$lower[out$component == "expected"], ex$lower)
+  expect_equal(out$upper[out$component == "expected"], ex$upper)
+  expect_true(is.na(out$p_adjusted[out$component == "expected"]))
+  # Estimates made before the expected combined effect had rows: the point only
+  old <- est
+  old$estimates <- old$estimates[old$estimates$component != "expected", ]
+  out_old <- plot(old)
+  expect_equal(out_old$estimate[out_old$component == "expected"], expected)
+  expect_true(is.na(out_old$lower[out_old$component == "expected"]))
   cls <- classify_interactions(est)
   code <- unname(plot_codes[cls$class[cls$null_model == "AD"]])
   expect_identical(out$class_code, c("", "", "", "", code))
@@ -125,6 +135,10 @@ test_that("type = \"time\" draws each set over the sampling times, without the a
   expect_false("overall" %in% out$time)
   expect_identical(unique(out$component), c("single", "expected", "combined", "interaction"))
   expect_equal(sum(out$component == "interaction"), 3L)
+  e <- est$estimates
+  ex <- e[e$component == "expected" & e$null_model == "MU" & e$time != "overall", ]
+  expect_equal(out$lower[out$component == "expected"], ex$lower)
+  expect_true(all(is.finite(out$upper[out$component == "expected"])))
   int <- out[out$component == "interaction", ]
   expect_true(all(int$class_code %in% c(plot_codes, "NC")))
   expect_true(all(out$page == 1L))
@@ -132,6 +146,16 @@ test_that("type = \"time\" draws each set over the sampling times, without the a
                class = "must_error_input")
   expect_error(plot(counts_estimates(), type = "time"), "sampling times",
                class = "must_error_input")
+})
+
+test_that("series at the same time are drawn apart, within the gap between times", {
+  shift <- series_shift(4L, c(10, 24, 38), c(8, 40))
+  expect_equal(shift, -rev(shift))
+  expect_equal(diff(shift), rep(0.012 * 32, 3))
+  # Close times: all series within half of the shortest gap
+  close <- series_shift(7L, c(0, 1, 30), c(-2, 32))
+  expect_lte(diff(range(close)), 0.5 * 1)
+  expect_equal(series_shift(3L, 7, c(6.5, 7.5)), c(-0.012, 0, 0.012))
 })
 
 test_that("combinations with only zeros and infinite estimates are drawn", {

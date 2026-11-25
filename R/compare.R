@@ -104,7 +104,11 @@ compare_null_models <- function(x, null_models = NULL, alpha = 0.05) {
   if (is.null(null_models)) {
     null_models <- available
   } else {
-    null_models <- check_null_models(null_models)
+    null_models <- if (inherits(x, "must_community")) {
+      check_community_models(null_models)
+    } else {
+      check_null_models(null_models)
+    }
     missing <- setdiff(null_models, available)
     if (length(missing) > 0L) {
       abort_input(sprintf(

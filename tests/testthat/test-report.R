@@ -243,6 +243,29 @@ test_that("a model fitted outside must is described by its class and emmeans", {
   expect_true(any(grepl("^Lenth", r$references)))
 })
 
+test_that("resampling tests are described with their number of resamples", {
+  est <- report_fixture(inference = "resampling", n_boot = 99)
+  r <- report_interactions(est)
+  text <- methods_text(r)
+  expect_match(text, "from 500 draws of the fixed effects", fixed = TRUE)
+  expect_match(text, "The net interactions under AD and MU were instead tested by resampling",
+               fixed = TRUE)
+  expect_match(text, "with an identity link and means that cannot be negative, under AD",
+               fixed = TRUE)
+  expect_match(text, "99 resamples of whole experimental units", fixed = TRUE)
+  expect_match(text, "PIT-trap (Warton et al. 2017)", fixed = TRUE)
+  expect_match(text, "seed 2.", fixed = TRUE)
+  expect_true(any(grepl("^Warton, D\\. I\\.", r$references)))
+  expect_identical(decision(r, "inference"), "resampling")
+  expect_identical(decision(r, "n_boot"), "99")
+  expect_identical(decision(r, "n_boot", "default"), "999")
+  # Without resampling, neither the text nor the table mention it.
+  plain <- report_interactions(report_fixture())
+  expect_false(grepl("resampl", methods_text(plain)))
+  expect_length(decision(plain, "n_boot"), 0L)
+  expect_false(any(grepl("^Warton", plain$references)))
+})
+
 test_that("interactions estimated by earlier versions of must are still reported", {
   est <- report_fixture()
   est$settings$fit <- NULL

@@ -118,8 +118,11 @@ test_that("Bliss contrasts follow Beppler et al. (2016)", {
   w <- contrast_weights(2)
   specs <- component_specs("BL", 2, c("a", "b"), w)
   values <- vapply(specs, function(sp) bliss_contrast(M, 2, sp), numeric(1))
-  # Single and combined effects w - 1; net interaction wAB - wA wB (eq. 2.1)
-  expect_equal(values, c(-0.5, -0.3, -0.75, 0.25 - 0.5 * 0.7))
+  # Single effects w - 1, expected combined effect wA wB - 1, combined effect
+  # wAB - 1 and net interaction wAB - wA wB (eq. 2.1)
+  expect_equal(vapply(specs, `[[`, character(1), "component"),
+               c("single", "single", "expected", "combined", "interaction"))
+  expect_equal(values, c(-0.5, -0.3, 0.5 * 0.7 - 1, -0.75, 0.25 - 0.5 * 0.7))
   # Three stressors: net DA (eq. 2.2) and emergent E3 (eq. 2.4)
   y <- c(20, 16, 12, 18, 9, 13.5, 10, 6)
   W <- y / y[[1L]]

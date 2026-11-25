@@ -14,7 +14,7 @@
 # binomial combination with only zeros or only successes on a logit link.
 
 boundary_families <- function() {
-  c("poisson", "nbinom2", "tweedie", "binomial", "betabinomial")
+  c("poisson", "nbinom1", "nbinom2", "tweedie", "binomial", "betabinomial")
 }
 
 # Gauss-Hermite nodes and weights (Golub-Welsch) for integrals against
@@ -34,6 +34,7 @@ prob_boundary_obs <- function(family, m, n, disp, power, type) {
   switch(
     family,
     poisson = exp(-m),
+    nbinom1 = (1 + disp)^(-m / disp),
     nbinom2 = (disp / (disp + m))^disp,
     tweedie = exp(-m^(2 - power) / (disp * (2 - power))),
     binomial = if (identical(type, "zero")) (1 - m)^n else m^n,
@@ -135,7 +136,7 @@ prob_all_boundary <- function(mean, rows, family, link, disp, power, sd_re, type
 boundary_parameters <- function(model, rows) {
   family <- stats::family(model)$family
   disp <- rep(NA_real_, nrow(rows))
-  if (family %in% c("nbinom2", "tweedie", "betabinomial")) {
+  if (family %in% c("nbinom1", "nbinom2", "tweedie", "betabinomial")) {
     all_disp <- tryCatch(stats::predict(model, type = "disp"), error = function(e) NULL)
     disp <- if (is.null(all_disp)) rep(stats::sigma(model), nrow(rows)) else all_disp[rows$.row]
   }

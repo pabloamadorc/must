@@ -1,6 +1,6 @@
 Package: must
 Title: Multiple-Stressor Interactions Under Alternative Null Models
-Version: 0.3.0
+Version: 0.3.0.9000
 Authors@R: c(
     person("Pablo", "Amador Crespo", email = "pamadorc@gmail.com",
            role = c("aut", "cre", "cph"), comment = c(ORCID = "0000-0002-3793-8794")),
@@ -37,8 +37,15 @@ Description: Detects and classifies non-additive effects of multiple stressors i
     with only zeros are tested from the probability of that outcome. For
     three or more stressors the net deviation from the single-stressor
     effects is distinguished from the pure highest-order interaction.
-    Interactions can be classified with the directional scheme of Piggott et
-    al. (2015) <doi:10.1002/ece3.1465>.
+    Simple addition and the multiplicative model can also be tested by
+    resampling whole experimental units under the null model, with the
+    PIT-trap of Warton et al. (2017) <doi:10.1371/journal.pone.0181790>. For
+    communities, the effects on the total abundance and the richness of the
+    taxa are tested against the compositional null model of Thompson et al.
+    (2018) <doi:10.1111/gcb.13852>, and all the taxa at once with
+    multivariate generalised linear models. Interactions can be classified
+    with the directional scheme of Piggott et al. (2015)
+    <doi:10.1002/ece3.1465>.
 License: MIT + file LICENSE
 URL: https://pabloamadorc.github.io/must/, https://github.com/pabloamadorc/must
 BugReports: https://github.com/pabloamadorc/must/issues
@@ -59,9 +66,13 @@ Suggests:
     emmeans (>= 1.4.2),
     knitr,
     lme4,
+    MASS,
     mgcv,
+    mvabund,
     rmarkdown,
-    testthat (>= 3.0.0)
+    statmod,
+    testthat (>= 3.0.0),
+    tweedie
 VignetteBuilder: knitr
 Config/testthat/edition: 3
 RoxygenNote: 7.3.1

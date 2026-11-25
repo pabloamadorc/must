@@ -21,10 +21,19 @@
 #'    addition. It distinguishes the net deviation of a combination of three
 #'    or more stressors from its pure highest-order interaction. By default
 #'    the tests are corrected for small samples; `correction = "none"` gives
-#'    the asymptotic procedure of Madge Pimentel et al. (2025).
+#'    the asymptotic procedure of Madge Pimentel et al. (2025), and
+#'    `inference = "resampling"` tests AD and MU by resampling whole
+#'    experimental units under each null model.
 #'    [classify_interactions()] assigns the directional classes of Piggott et
 #'    al. (2015), `summary()` gives an overview and
 #'    [plot()][plot.must_interactions()] draws how each interaction arises.
+#'    [estimate_community()] does the same for the total abundance and the
+#'    richness of a community, from the models of each taxon, with the
+#'    compositional null model of Thompson et al. (2018), and
+#'    [test_community()] tests the multiplicative null model, or the
+#'    additive one truncated at zero, on all the taxa of a community at once
+#'    (counts, densities or biomass), with the multivariate generalised
+#'    linear models of Szöcs et al. (2015).
 #'
 #' [suggest_null_models()] applies the guidelines of Schäfer & Piggott (2018)
 #' to choose the null models, and [report_interactions()] writes the methods
@@ -49,6 +58,18 @@
 #' prediction in multiple stressor research through a mechanistic basis for
 #' null models. *Global Change Biology*, 24(5), 1817–1826.
 #' \doi{10.1111/gcb.14073}
+#'
+#' Szöcs, E., Van den Brink, P. J., Lagadic, L., Caquet, T., Roucaute, M.,
+#' Auber, A., Bayona, Y., Liess, M., Ebke, P., Ippolito, A., ter Braak, C. J.
+#' F., Brock, T. C. M., & Schäfer, R. B. (2015). Analysing chemical-induced
+#' changes in macroinvertebrate communities in aquatic mesocosm experiments:
+#' a comparison of methods. *Ecotoxicology*, 24, 760–769.
+#' \doi{10.1007/s10646-015-1421-0}
+#'
+#' Thompson, P. L., MacLennan, M. M., & Vinebrooke, R. D. (2018). An
+#' improved null model for assessing the net effects of multiple stressors on
+#' communities. *Global Change Biology*, 24(1), 517–525.
+#' \doi{10.1111/gcb.13852}
 #' @keywords internal
 "_PACKAGE"
 

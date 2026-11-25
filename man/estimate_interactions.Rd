@@ -21,6 +21,7 @@ estimate_interactions(fit, ...)
   seed = NULL,
   sam_shape = 3.2,
   margin = NULL,
+  n_boot = 999L,
   ...
 )
 
@@ -63,8 +64,11 @@ output of \code{\link[=suggest_null_models]{suggest_null_models()}}: its null mo
 criteria and reasons are kept in \code{settings$null_model_choice}.}
 
 \item{inference}{\code{"simulation"} (default; Krinsky–Robb: draws of the fixed
-effects from their estimated distribution) or \code{"delta"} (delta method;
-not for \code{"DO"}).}
+effects from their estimated distribution), \code{"delta"} (delta method;
+not for \code{"DO"}) or, for a \code{must_fit} and the null models \code{"AD"} and
+\code{"MU"}, \code{"resampling"}: the net interactions are tested by resampling
+whole experimental units under the null model, a GLM of the family of
+each fitted model (see "Resampling").}
 
 \item{correction}{\code{"small_sample"} (default) or \code{"none"}. For a \code{must_fit}
 with \code{"small_sample"}, the covariance of the fixed effects comes from the
@@ -119,6 +123,9 @@ margin, each interaction is also tested for equivalence
 its verdict (see "Equivalence"). It has no default: what deviation is
 negligible is a scientific decision, to be declared before the analysis.}
 
+\item{n_boot}{Number of resamples for \code{inference = "resampling"} (at
+least 99). Default 999.}
+
 \item{design}{For a model fitted outside must: the output of
 \code{\link[=describe_design]{describe_design()}} for the data the model was fitted to. Its stressors,
 control levels, \code{time}, \code{by}, \code{baseline}, \code{max_order} and \code{background}
@@ -153,8 +160,10 @@ outside the set): what is estimated.
 \code{scale} (\code{"response"}, \code{"log(response)"} or \code{"response / control"}):
 what "no interaction" means and on which scale.
 \item \code{component}: \code{"single"} (one stressor alone vs the reference cell;
-its name in \code{stressor}), \code{"combined"} (all stressors of the set vs the
-reference) or \code{"interaction"}.
+its name in \code{stressor}), \code{"expected"} (the combined effect that the
+null model expects from the single effects; see Details),
+\code{"combined"} (all stressors of the set vs the reference) or
+\code{"interaction"}.
 \item \code{estimand} for interactions: \code{"net"} (deviation of the combination
 from the null-model combination of the single effects) or \code{"pure"}
 (highest-order interaction once all lower-order ones are removed;
@@ -164,7 +173,8 @@ the standard deviation of the simulated estimates before they are
 scaled to a t distribution, comparable with the delta method),
 \code{lower}, \code{upper}, \code{level}, \code{df} (degrees of freedom of the t
 distribution; \code{Inf} for the normal), \code{p_value}, \code{p_adjusted}, \code{mc_se}
-(Monte Carlo standard error of a simulated p-value).
+(Monte Carlo standard error of a simulated p-value). The expected
+combined effect is not tested: its p-values are \code{NA}.
 \item \code{observed} and \code{expected} (interactions only, response scale): the
 fitted mean of the combination and the value the null model predicts.
 \item \code{relative}, \code{relative_lower} and \code{relative_upper} (interactions only):
@@ -177,7 +187,8 @@ like \code{p_adjusted}.
 \item \code{rescaled} and \code{rescaled_class} (BL interactions only): the
 interaction relative to its extremes and its descriptive class (see
 "Bliss independence").
-\item \code{inference}, \code{status} (\code{"ok"}, \code{"boundary"} (tested from the
+\item \code{inference} (\code{"simulation"}, \code{"delta"}, \code{"boundary test"} or
+\code{"resampling"}), \code{status} (\code{"ok"}, \code{"boundary"} (tested from the
 probability of a combination with only zeros, see Details),
 \code{"not_estimable"}, \code{"not_identifiable"}, \code{"not_defined"} or
 \code{"not_applicable"}), \code{reason}, \code{note} (\code{"expected_below_zero"} when
@@ -189,7 +200,10 @@ draws) is not positive; \code{"equivalence_not_tested"} when the closest
 means at the margin could not be found (see "Equivalence");
 \code{"confounded_with_groups"} for the sets flagged
 in \code{sets$confounded} by \code{\link[=describe_design]{describe_design()}}; \code{"complement"} for
-responses analysed as 1 - p; several notes are separated by \code{"; "}).
+responses analysed as 1 - p; \code{"joint_over_times"} for the resampling
+test of all times together; \code{"resampling_not_available"} for a net
+interaction that kept the post-estimation test, with the reason in
+\code{reason}; several notes are separated by \code{"; "}).
 }
 
 \code{settings} holds the arguments used (with the seed and whether it was
@@ -241,6 +255,18 @@ interaction. The dominance model is defined for two stressors only.
 on the response scale (AD) or log ratios (MU). For DO only the
 interaction is reported; its single effects are those of AD.
 
+\strong{Expected combined effect.} The combined effect that the null model
+predicts from the single effects, on the scale of the single and combined
+effects: their sum under AD and MU; under BL, SAM and CA, the relative
+response that the null model predicts for the combination (under BL the
+product of those of the stressors alone), minus 1. The net interaction is
+the observed combined effect minus the expected one. The interval of the
+expected effect comes from the same simulation draws (or, with
+\code{"delta"}, the same gradient and covariance) as the other estimates, so
+it accounts for the covariance of the means it uses; it is not tested. It
+does not use the combination, so it keeps its interval when the
+combination has only zeros.
+
 \strong{Inference.} \code{"simulation"} follows the Krinsky–Robb method used by
 Madge Pimentel et al. (2025): percentile intervals and two-sided p-values
 \eqn{2 \min(P(x \le 0), P(x \ge 0))}{2 min(P(x <= 0), P(x >= 0))} of the
@@ -280,8 +306,8 @@ only zeros at a time (or, for binomial responses, only zeros or only
 successes) and the model selected by \code{\link[=fit_responses]{fit_responses()}} has a log or logit
 link, the null model still predicts a mean E for it from the other cells.
 The p-value is twice the probability of observing only zeros if the mean
-were E, averaged over the draws of E (\code{status = "boundary"}; Poisson, NB2,
-Tweedie, binomial and beta-binomial models). Random intercepts are
+were E, averaged over the draws of E (\code{status = "boundary"}; Poisson, NB1,
+NB2, Tweedie, binomial and beta-binomial models). Random intercepts are
 integrated out: observations that share a level of a random effect share
 one intercept with the variance of all random terms, which is exact with a
 single grouping (units or rooms, say) and conservative with nested or
@@ -291,6 +317,49 @@ the observed mean (zero), which makes MU estimates \code{-Inf}; intervals are
 not given. If the reference cell, or a single-stressor cell that an
 interaction needs, has only zeros, that contrast cannot be measured and
 the row is \code{"not_estimable"}.
+
+\strong{Resampling.} With \code{inference = "resampling"} the estimates, their
+intervals and the tests of the single and combined effects stay those of
+the post-estimation inference (\code{"simulation"}, with the same seed); only
+the net interactions under AD and MU are tested otherwise. For each set
+and time, a GLM of the distribution of the fitted model (Poisson,
+negative binomial with its size, NB1, Gaussian, gamma, lognormal or
+Tweedie with its power) is fitted to the samples of the reference cell,
+of each stressor alone and of the combination twice: with one mean per
+cell, and under the null model, the effects of the stressors adding up
+on the response scale (AD, an identity link) or on the log scale (MU, a
+log link). For responses that cannot be negative the means of AD are
+kept non-negative: when AD expects a negative mean for the combination,
+the null model is fitted at that boundary and an absent combination
+deviates from it (the flooring of Madge Pimentel et al. 2025). The
+statistic is the drop in deviance between the two models divided by the
+dispersion estimated from the deviance of the null model, \code{df0 * (D0 - D1) / D0}, which does not depend on the dispersion assumed (the size of a
+negative binomial is fixed at its estimate), and its p-value comes from
+resampling whole experimental units under the null model with the
+PIT-trap (Warton et al. 2017): the probability integral
+transform residuals of each unit are resampled, at all its times
+together, and turned back into values with the quantile function of the
+null model. The test does not rely on the asymptotic distribution of the
+estimates and handles combinations with only zeros (no \code{"boundary"}
+status). In simulated 2 x 2 experiments with four units per combination
+(negative binomial counts, Tweedie densities, gamma and Gaussian
+responses), the resampling tests rejected a true AD or MU in 2.7–5.7\% of
+the experiments, the post-estimation tests in 3.0–7.0\%, and both detected
+the other null model about as often. With all times together (\code{time = "overall"}) it tests that there
+is no interaction at any time (one degree of freedom per time; note
+\code{"joint_over_times"}), not that the average interaction is zero. Madge
+Pimentel et al. (2025) advise against identity and log links fitted to
+distributions bounded at zero, because the fits fail and their intervals
+are biased: here the means are fitted with their bounds and the intervals
+are not taken from these models. Proportions, other distributions and
+sets whose units cannot be resampled whole (fewer than two units in a
+cell, units sampled a different number of times, or a stressor applied
+to whole groups of units, whose groups are its replicates) keep the
+post-estimation test (note \code{"resampling_not_available"}, reason in
+\code{reason}). The models have no random effects (units are resampled
+whole), and the dispersion of \code{dispersion = "cell"} fits is replaced by
+one dispersion. DO, BL, SAM and CA have no link function and are not
+available; neither are fits with \code{time_structure = "additive"}.
 
 \strong{Multiple testing.} p-values are adjusted within each response, null
 model, component, stressor and estimand, across contrast sets, sampling
@@ -594,6 +663,11 @@ classify_interactions(eq)[, c("null_model", "class", "verdict")]
 bl <- estimate_interactions(fits, null_models = "BL", n_sim = 2000, seed = 1)
 bl$estimates[bl$estimates$component == "interaction",
   c("estimate", "lower", "upper", "p_value", "rescaled", "rescaled_class")]
+# AD and MU tested by resampling the jars under each null model
+rs <- estimate_interactions(fits, null_models = c("AD", "MU"), inference = "resampling",
+  n_sim = 2000, n_boot = 199, seed = 1)
+rs$estimates[rs$estimates$component == "interaction",
+  c("null_model", "estimate", "lower", "upper", "p_value", "inference")]
 \dontshow{if (requireNamespace("emmeans", quietly = TRUE)) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 # A model fitted outside must
 model <- stats::glm(algae ~ salinity * warming, family = stats::poisson(), data = jars)
@@ -667,4 +741,9 @@ Tekin, E., Yeh, P. J., & Savage, V. M. (2018). General form for
 interaction measures and framework for deriving higher-order emergent
 effects. \emph{Frontiers in Ecology and Evolution}, 6, 166.
 \doi{10.3389/fevo.2018.00166}
+
+Warton, D. I., Thibaut, L. & Wang, Y. A. (2017). The PIT-trap—A
+"model-free" bootstrap procedure for inference about regression models
+with discrete, multivariate responses. \emph{PLoS ONE}, 12(7), e0181790.
+\doi{10.1371/journal.pone.0181790}
 }

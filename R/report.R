@@ -92,6 +92,12 @@ report_interactions <- function(x, classes = NULL, agreement = NULL, justificati
       "`x` must be the output of estimate_interactions(), not %s.", describe_value(x)
     ))
   }
+  if (inherits(x, "must_community")) {
+    abort_input(paste(
+      "report_interactions() does not describe the estimates of estimate_community() yet:",
+      "their methods are given in ?estimate_community."
+    ))
+  }
   responses <- unique(x$estimates$response)
   if (!is.null(classes) && !(is.data.frame(classes) &&
                              all(c("class", "verdict", "null_model") %in% names(classes)) &&
@@ -499,6 +505,12 @@ report_static_references <- function() {
       "and the power approach for assessing the equivalence of average",
       "bioavailability. *Journal of Pharmacokinetics and Biopharmaceutics*, 15(6),",
       "657\u2013680. <https://doi.org/10.1007/BF01068419>"
+    )),
+    warton2017 = list("Warton et al.", "2017", paste(
+      "Warton, D. I., Thibaut, L., & Wang, Y. A. (2017). The PIT-trap\u2014A",
+      "\u201cmodel-free\u201d bootstrap procedure for inference about regression",
+      "models with discrete, multivariate responses. *PLoS ONE*, 12(7), e0181790.",
+      "<https://doi.org/10.1371/journal.pone.0181790>"
     ))
   )
 }
@@ -1318,7 +1330,7 @@ report_inference <- function(x, refs) {
   } else {
     sprintf("%s to %s", format(min(finite)), format(max(finite)))
   }
-  text <- if (identical(s$inference, "simulation")) {
+  text <- if (s$inference %in% c("simulation", "resampling")) {
     sprintf(paste(
       "Uncertainty was obtained from %s draws of the fixed effects from their",
       "estimated distribution (%s), which gave percentile intervals and two-sided",
@@ -1326,6 +1338,9 @@ report_inference <- function(x, refs) {
     ), format(s$n_sim, big.mark = ",", scientific = FALSE), refs$cite("krinsky1986"))
   } else {
     "Uncertainty was obtained with the delta method (Wald intervals and tests)."
+  }
+  if (identical(s$inference, "resampling")) {
+    text <- paste(text, report_resampling(x, refs))
   }
   normal <- unique(tested$response[is.infinite(tested$df)])
   correction <- if (!identical(s$correction, "small_sample")) {
@@ -1431,10 +1446,65 @@ report_inference <- function(x, refs) {
       refs$cite("anscombe1948")
     ))
   }
-  if (identical(s$inference, "simulation") || any(est$status %in% "boundary")) {
+  if (s$inference %in% c("simulation", "resampling") || any(est$status %in% "boundary")) {
     text <- paste(text, sprintf("Random numbers were generated with seed %s.", format(s$seed)))
   }
   text
+}
+
+# The tests of inference = "resampling": which interactions, how, and those
+# that kept the post-estimation tests.
+report_resampling <- function(x, refs) {
+  est <- x$estimates
+  net <- est[est$component == "interaction" & est$estimand %in% "net" &
+               est$null_model %in% c("AD", "MU"), , drop = FALSE]
+  resampled <- net[net$inference %in% "resampling", , drop = FALSE]
+  kept <- unique(net$response[grepl("resampling_not_available", net$note, fixed = TRUE)])
+  if (nrow(resampled) == 0L) {
+    return(paste(
+      "The resampling tests of the net interactions under AD and MU were not available",
+      "for these responses, which kept the post-estimation tests."
+    ))
+  }
+  models <- intersect(c("AD", "MU"), resampled$null_model)
+  how <- c(
+    AD = paste("the effects of the stressors adding up on the response scale, with an",
+               "identity link and means that cannot be negative, under AD"),
+    MU = "adding up on the log scale, with a log link, under MU"
+  )[models]
+  has_time <- any(!is.na(est$time) & est$time != "overall")
+  text <- sprintf(
+    paste(
+      "The net interactions under %s were instead tested by resampling: for each",
+      "contrast set%s, a generalized linear model of the distribution selected for",
+      "%s, without random effects and with one mean per combination, was compared",
+      "with the same model under the null model (%s), and the p-value of the drop in",
+      "deviance came from %s resamples of whole experimental units under the null",
+      "model with the PIT-trap (%s)."
+    ),
+    and_list(models), if (has_time) " and sampling time" else "",
+    plural(length(unique(est$response)), "the response", "each response"),
+    paste(how, collapse = "; "),
+    format(s_n_boot(x), big.mark = ",", scientific = FALSE), refs$cite("warton2017")
+  )
+  if (any(resampled$time %in% "overall")) {
+    text <- paste(text, paste(
+      "Over all the sampling times together, these tests asked whether the",
+      "combination deviated at any time."
+    ))
+  }
+  if (length(kept) > 0L) {
+    text <- paste(text, sprintf(
+      "For %s, some of these tests were not available and the post-estimation tests were kept.",
+      and_list(kept)
+    ))
+  }
+  text
+}
+
+s_n_boot <- function(x) {
+  n <- x$settings$n_boot
+  if (is.null(n)) NA_integer_ else n
 }
 
 p_adjust_text <- function(method, refs) {
@@ -1743,8 +1813,12 @@ decisions_estimate <- function(x) {
         if (!is.null(s$null_model_choice)) "suggest_null_models()"),
     row("Inference", "inference", s$inference)
   ))
-  if (identical(s$inference, "simulation") || any(x$estimates$status %in% "boundary")) {
+  if (s$inference %in% c("simulation", "resampling") ||
+        any(x$estimates$status %in% "boundary")) {
     rows <- c(rows, list(row("Number of simulation draws", "n_sim", show_value(s$n_sim))))
+  }
+  if (identical(s$inference, "resampling")) {
+    rows <- c(rows, list(row("Number of resamples", "n_boot", show_value(s$n_boot))))
   }
   rows <- c(rows, list(row("Small-sample correction", "correction", s$correction)))
   if (external && !identical(s$correction, "none")) {
@@ -1778,7 +1852,8 @@ decisions_estimate <- function(x) {
                              "sam_shape", show_value(s$sam_shape))))
   }
   rows <- c(rows, list(row("Equivalence margin", "margin", show_value(s$margin))))
-  if (identical(s$inference, "simulation") || any(x$estimates$status %in% "boundary")) {
+  if (s$inference %in% c("simulation", "resampling") ||
+        any(x$estimates$status %in% "boundary")) {
     rows <- c(rows, list(decision_row(step, "Seed of the simulations", "seed",
                                       show_value(s$seed), "drawn at random",
                                       seed_source(s$seed_given))))

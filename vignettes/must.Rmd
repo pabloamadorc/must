@@ -194,10 +194,10 @@ cls[cls$response == "total_density" & cls$time == "7" & cls$null_model == "AD",
 With the correction for small samples and the adjustment for multiple tests,
 no interaction of this experiment deviates clearly from the null models.
 `plot()` shows how each interaction arises: the effect of each stressor
-alone, the combined effect expected under the null model (the observed
-combined effect minus the net interaction), the combined effect observed and
-the interaction, with its class at the right. On day 7, under AD, the first
-null model:
+alone, the combined effect that the null model expects from them (with its
+interval, from the same simulations as the other estimates), the combined
+effect observed and the interaction (the difference between the last two),
+with its class at the right. On day 7, under AD, the first null model:
 
 ```{r example-plot, fig.width = 7, fig.height = 8.5}
 plot(est, response = "total_density", time = "7")
@@ -366,6 +366,50 @@ whole groups of units, those of the groups. Poisson and binomial models
 without random effects have no variance to estimate and keep the normal
 distribution. `correction = "none"` gives the asymptotic procedure, for
 comparison with published analyses.
+
+## Testing by resampling the units
+
+For AD and MU there is a second way of testing the net interaction, which
+does not rely on the distribution of the estimates. With
+`inference = "resampling"` a generalised linear model of the distribution
+that `fit_responses()` selected is fitted twice to the samples of the
+reference, of each stressor alone and of the combination: with one mean per
+combination, and under the null model, the effects of the stressors adding
+up on the response scale (AD, an identity link, with means that cannot be
+negative) or on the log scale (MU, a log link). The drop in deviance is
+compared with its distribution in resamples of whole experimental units
+generated under the null model, the PIT-trap of Warton et al. (2017). The
+estimates and intervals stay those of the post-estimation inference:
+
+```{r resampling}
+net_tests <- function(x) {
+  e <- x$estimates
+  e[e$component == "interaction",
+    c("null_model", "estimate", "lower", "upper", "p_value", "inference")]
+}
+rbind(
+  net_tests(estimate_interactions(small_fit, null_models = c("AD", "MU"), n_sim = 20000,
+                                  seed = 1)),
+  net_tests(estimate_interactions(small_fit, null_models = c("AD", "MU"),
+                                  inference = "resampling", n_sim = 20000, n_boot = 1999,
+                                  seed = 1))
+)
+```
+
+Madge Pimentel et al. (2025) advise against fitting identity and log links
+to distributions bounded at zero, because the fits fail and their intervals
+are biased; here the means are fitted within their bounds and no interval
+comes from these models. In simulated 2 x 2 experiments with four units per
+combination (negative binomial counts, Tweedie densities, gamma and Gaussian
+responses), the resampling tests rejected a true null model in 3–6% of the
+experiments and the post-estimation tests in 3–7%, and both detected the
+other null model about as often. A combination without any
+individual is tested like any other (the post-estimation inference needs a
+test of its own, `status = "boundary"`), and when AD expects a negative mean
+for the combination the null model is fitted at zero, so that its absence is
+a deviation. DO, BL, SAM and CA have no link function and are not tested
+this way; proportions, and sets with a stressor applied to whole groups of
+units, keep the post-estimation test (note `"resampling_not_available"`).
 
 ## Interactions in the presence of other stressors
 
@@ -801,7 +845,7 @@ fit rather than from the REML refit.
 | Intervals of those effects | `level` in `suggest_null_models()` | 95% |
 | Equivalence margin | `margin` | none (no test of equivalence) |
 | Shape of the stress capacity in SAM | `sam_shape` | 3.2 (Liess et al. 2016) |
-| Uncertainty | `inference`, `n_sim` | Krinsky–Robb simulation, 10000 draws |
+| Uncertainty | `inference`, `n_sim`, `n_boot` | Krinsky–Robb simulation, 10000 draws (with `"resampling"`, AD and MU tested with 999 resamples of the units) |
 | Small-sample correction | `correction` | REML and t distribution |
 | Degrees of freedom of a model fitted outside must | `df` | those of emmeans |
 | Responses where more means worse | `sensitivity` | none |
@@ -886,3 +930,8 @@ Saariselkä agreement revisited. *Frontiers in Pharmacology*, 6, 181.
 Thompson, P. L., MacLennan, M. M., & Vinebrooke, R. D. (2018). An improved
 null model for assessing the net effects of multiple stressors on communities.
 *Global Change Biology*, 24(1), 517–525. <https://doi.org/10.1111/gcb.13852>
+
+Warton, D. I., Thibaut, L., & Wang, Y. A. (2017). The PIT-trap—A "model-free"
+bootstrap procedure for inference about regression models with discrete,
+multivariate responses. *PLoS ONE*, 12(7), e0181790.
+<https://doi.org/10.1371/journal.pone.0181790>

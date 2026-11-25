@@ -9,7 +9,9 @@
 
 # Weight vectors of the linear contrasts. Applied to f(M) with f = identity
 # they give the simple-addition (AD) quantities; with f = log, the
-# multiplicative (MU) ones.
+# multiplicative (MU) ones. `expected` is the combined effect that the null
+# model expects, the sum of the single effects: the combined effect minus the
+# net deviation.
 contrast_weights <- function(m) {
   subsets <- all_subsets(m)
   size <- lengths(subsets)
@@ -29,14 +31,18 @@ contrast_weights <- function(m) {
   net[size == m] <- 1
   net[size == 1L] <- -1
   net[size == 0L] <- m - 1
+  expected <- numeric(n)
+  expected[size == 1L] <- 1
+  expected[size == 0L] <- -m
   # Pure m-th order interaction (inclusion-exclusion).
   pure <- (-1)^(m - size)
-  list(single = single, combined = combined, net = net, pure = pure, size = size)
+  list(single = single, combined = combined, expected = expected, net = net, pure = pure,
+       size = size)
 }
 
 null_model_scale <- function(null_model) {
   switch(null_model, AD = "response", MU = "log(response)", DO = "response",
-         BL = , SAM = , CA = "response / control")
+         BL = , SAM = , CA = , AD_taxa = , MU_taxa = "response / control")
 }
 
 # Null models whose effects are responses relative to the reference cell
@@ -174,7 +180,8 @@ ca_expected <- function(curves, x) {
 
 # Bliss independence (Bliss 1939), with the measures of Beppler et al. (2016)
 # and Tekin et al. (2018). Each mean is taken relative to the reference cell,
-# w_T = y_T / y_0. Single and combined effects are w - 1; the net interaction
+# w_T = y_T / y_0. Single and combined effects are w - 1, the expected
+# combined effect prod(w_i) - 1; the net interaction
 # (deviation from additivity, DA) is w_K - prod(w_i); the emergent interaction
 # of three stressors (E3, Beppler et al. 2016, eq. 2.4) is
 #   w_XYZ - w_X w_YZ - w_Y w_XZ - w_Z w_XY + 2 w_X w_Y w_Z,
@@ -185,6 +192,9 @@ bliss_contrast <- function(M, m, sp) {
   W <- M / M[, 1L]
   size <- lengths(all_subsets(m))
   full <- length(size)
+  if (identical(sp$component, "expected")) {
+    return(apply(W[, size == 1L, drop = FALSE], 1L, prod) - 1)
+  }
   if (!identical(sp$component, "interaction")) {
     return(W[, which(sp$weights == 1)] - 1)
   }
@@ -200,15 +210,17 @@ bliss_contrast <- function(M, m, sp) {
 }
 
 # Stress addition contrasts: relative single and combined effects as under
-# Bliss independence; the net interaction is w_K minus the survival that the
-# stress addition model predicts from the single stressors.
+# Bliss independence; the expected combined effect is the survival that the
+# stress addition model predicts from the single stressors, minus 1, and the
+# net interaction w_K minus that survival.
 sam_contrast <- function(M, m, sp) {
-  if (!identical(sp$component, "interaction")) {
+  if (!sp$component %in% c("expected", "interaction")) {
     return(bliss_contrast(M, m, sp))
   }
   W <- M / M[, 1L]
   size <- lengths(all_subsets(m))
-  W[, length(size)] - sam_expected(W[, size == 1L, drop = FALSE], sp$shape)
+  predicted <- sam_expected(W[, size == 1L, drop = FALSE], sp$shape)
+  if (identical(sp$component, "expected")) predicted - 1 else W[, length(size)] - predicted
 }
 
 # Log-logistic curves of the stressors of a concentration-addition contrast,
@@ -221,11 +233,13 @@ ca_curves <- function(W, sp) {
 }
 
 # Net concentration-addition interaction from the means of the cells of
-# sp$cols: the reference first, the combination last.
+# sp$cols: the reference first, the combination last. The expected combined
+# effect uses the same cells without the combination.
 ca_contrast <- function(D, sp) {
   D <- as.matrix(D)
   W <- D / D[, 1L]
-  W[, ncol(W)] - ca_expected(ca_curves(W, sp), sp$ca$x)
+  predicted <- ca_expected(ca_curves(W, sp), sp$ca$x)
+  if (identical(sp$component, "expected")) predicted - 1 else W[, ncol(W)] - predicted
 }
 
 # Rescaled Bliss interaction (Segre et al. 2005; Beppler et al. 2016): the

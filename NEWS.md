@@ -1,3 +1,69 @@
+# must (development version)
+
+* New `estimate_community()` estimates the effects of the stressors on two
+  properties of a community, the total abundance (or biomass) of its taxa
+  and their richness (the expected number of taxa found in a sample), from
+  the models that `fit_responses()` fits to each taxon. The combined effect
+  is compared with four null models: the compositional null model of
+  Thompson et al. (2018), which adds the effects of the stressors on each
+  taxon (`"AD_taxa"`), its multiplicative version (`"MU_taxa"`), and the
+  additive (`"AD"`) and multiplicative (`"MU"`) null models applied to the
+  property itself. Effects are relative changes from the reference cell, with
+  percentile intervals and p-values from simulation draws of every taxon's
+  model; the draws of the taxa are correlated through the correlation of
+  their residuals, shrunk towards zero (Schäfer & Strimmer 2005). Under the
+  compositional additive model the richness is not estimated when whether
+  some taxon would persist is too uncertain, because its tests then reject
+  true null models too often. The result works with
+  `classify_interactions()`, `compare_null_models()`, `summary()` and
+  `plot()`; `report_interactions()` does not describe it yet.
+* New `test_community()` tests a null model on every taxon of a community
+  at once, as the multivariate generalised linear models of Szöcs et al.
+  (2015) do: a model of each taxon with and without the interaction of the
+  stressors of each contrast set, the sum of their statistics as the test
+  of the community, and p-values from resampling whole experimental units
+  under the null model. The null models are the multiplicative one (`"MU"`,
+  a log link) and the additive one truncated at zero where the stressors
+  eliminate a taxon (`"AD_taxa"`, an identity link; Thompson et al. 2018).
+  Counts are modelled with negative binomial (or Poisson) models, with
+  package mvabund (now suggested) under MU, and with the sampling effort of
+  each sample as an offset (`effort`) when densities come from counts;
+  densities or biomass without counts, with Tweedie models
+  (`family = "tweedie"`). It also gives the net interaction of each taxon,
+  with p-values adjusted across taxa.
+
+* `estimate_interactions()` has a new `inference = "resampling"` for the
+  net interactions under AD and MU of the responses of `fit_responses()`:
+  a GLM of the family of each fitted model under the null model (an
+  identity link for AD, with means kept non-negative; a log link for MU)
+  against one mean per cell, with p-values from resampling whole
+  experimental units with the PIT-trap (Warton et al. 2017). The estimates
+  and intervals stay those of the post-estimation inference, and
+  `report_interactions()` describes the tests.
+
+* `estimate_community()` has a new `inference = "resampling"`: whole
+  experimental units are resampled with all their taxa, so that the
+  correlation of the taxa is kept instead of modelled with a copula. With
+  four units per combination it was less well calibrated than the
+  simulation, which stays the default.
+* `fit_responses()` keeps the data row, experimental unit and treatment
+  combination of each observation of a model (`observations`).
+* Combinations with only zeros are also tested under negative binomial models
+  with a variance proportional to the mean (NB1, `glmmTMB::nbinom1()`), the
+  likelihood counterpart of the quasi-Poisson model that Szöcs & Schäfer
+  (2015) recommend for counts. NB1 is not a default candidate of
+  `fit_responses()`: give it in `families`.
+* `estimate_interactions()` also returns the combined effect expected under
+  each null model (`component = "expected"`), on the scale of the single and
+  combined effects, with its interval. The interval comes from the same
+  simulation draws (or, with the delta method, the same gradient) as the
+  other estimates, so it accounts for the covariance of the means it uses;
+  the expected effect is not tested (`p_value` is `NA`). It is not given
+  for the dominance model, which reports the interaction only. `plot()`
+  draws it with its interval in `type = "effects"` and `"time"` (#1); in
+  `type = "time"` the series are drawn slightly apart at each time so that
+  their intervals do not overlap.
+
 # must 0.3.0
 
 * `plot()` of `must_interactions` objects has been redesigned and draws four

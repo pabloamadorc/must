@@ -84,8 +84,11 @@
 #'     `residuals_ok`, `selected`, `message`), `checks_passed` (`TRUE`,
 #'     `FALSE` if no candidate passed all the residual checks, or `NA` if
 #'     they were not run), `formula` (of the selected candidate), `n_obs`,
-#'     `n_missing` (rows without a response value) and `grid` (treatment
-#'     combinations and times predicted later).
+#'     `n_missing` (rows without a response value), `grid` (treatment
+#'     combinations and times predicted later) and `observations` (the row
+#'     of `data`, the experimental unit and the treatment combination and
+#'     time of each observation of the model, which [estimate_community()]
+#'     uses to pair the taxa).
 #'   * `design`: the design.
 #'   * `settings`: the arguments used, with the seed (and whether it was
 #'     given), the families of the candidates given in `families` and the
@@ -110,14 +113,21 @@
 #' passed it too), and then the tests of [estimate_interactions()] rejected
 #' true null models too often; fitting the negative binomial kept them close
 #' to their nominal error, at a small cost in power when the counts are
-#' truly Poisson. Continuous values: Gaussian, Gaussian with log link, Gamma with log link
-#' and lognormal if all values are positive; Gaussian, Gaussian with log
-#' link and Tweedie if there are zeros; Gaussian only if there are negative
-#' values. With an `offset` only the log-link candidates are kept. Use
-#' `response_types` when the detection is wrong (a density rounded to whole
-#' numbers is not a count) and `families` for other distributions (e.g.
-#' [glmmTMB::beta_family()] for proportions without a number of trials, such
-#' as cover).
+#' truly Poisson. The negative binomial with a variance proportional to the
+#' mean (NB1, the likelihood counterpart of the quasi-Poisson model that
+#' Szöcs and Schäfer (2015) recommend for counts) is not a default
+#' candidate: in simulated experiments with and without overdispersion, the
+#' tests of deviation and of equivalence rejected true hypotheses in up to
+#' 6.4% of the experiments (at the 5% level) with NB2 alone and in up to
+#' 6.9% when NB1 and NB2 were chosen by AIC. Give it with `families =
+#' list(nbinom1 = glmmTMB::nbinom1())`. Continuous values: Gaussian,
+#' Gaussian with log link, Gamma with log link and lognormal if all values
+#' are positive; Gaussian, Gaussian with log link and Tweedie if there are
+#' zeros; Gaussian only if there are negative values. With an `offset` only
+#' the log-link candidates are kept. Use `response_types` when the detection
+#' is wrong (a density rounded to whole numbers is not a count) and
+#' `families` for other distributions (e.g. [glmmTMB::beta_family()] for
+#' proportions without a number of trials, such as cover).
 #'
 #' **Optimiser.** A cell-means model has one parameter per treatment
 #' combination (and time), which can be more than the default limits of the
@@ -193,6 +203,11 @@
 #' Madge Pimentel, I., et al. (2025). Hypothesis-driven research on multiple
 #' stressors: An analytical framework for stressor interactions. *Ecology
 #' and Evolution*, 15, e71959. \doi{10.1002/ece3.71959}
+#'
+#' Szöcs, E., & Schäfer, R. B. (2015). Ecotoxicology is not normal: A
+#' comparison of statistical approaches for analysis of count and proportion
+#' data in ecotoxicology. *Environmental Science and Pollution Research*,
+#' 22, 13990–13999. \doi{10.1007/s11356-015-4579-3}
 #'
 #' @examples
 #' jars <- expand.grid(
@@ -974,6 +989,12 @@ fit_one_response <- function(frame, response, families, response_type, trials_co
   at_boundary <- effective_boundary(boundary, d, fixed, family$link)
   base$boundary <- at_boundary
   d$.row <- seq_len(nrow(d))
+  # Data row, experimental unit and treatment combination (and time) of each
+  # observation of the model, which estimate_community() uses to pair the
+  # observations of the taxa.
+  base$observations <- data.frame(row = which(keep), unit = as.character(d$.unit),
+                                  cell_time = as.character(d$.cell_time),
+                                  stringsAsFactors = FALSE)
   re_columns <- c(".unit", grep("^\\.g_", names(d), value = TRUE), design$spec$groups,
                   design$spec$unit)
   base$boundary_rows <- d[as.character(d$.cell_time) %in% names(at_boundary),

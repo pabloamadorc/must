@@ -116,8 +116,11 @@ refitted by REML, used for the small-sample correction of
 \code{residuals_ok}, \code{selected}, \code{message}), \code{checks_passed} (\code{TRUE},
 \code{FALSE} if no candidate passed all the residual checks, or \code{NA} if
 they were not run), \code{formula} (of the selected candidate), \code{n_obs},
-\code{n_missing} (rows without a response value) and \code{grid} (treatment
-combinations and times predicted later).
+\code{n_missing} (rows without a response value), \code{grid} (treatment
+combinations and times predicted later) and \code{observations} (the row
+of \code{data}, the experimental unit and the treatment combination and
+time of each observation of the model, which \code{\link[=estimate_community]{estimate_community()}}
+uses to pair the taxa).
 \item \code{design}: the design.
 \item \code{settings}: the arguments used, with the seed (and whether it was
 given), the families of the candidates given in \code{families} and the
@@ -150,14 +153,20 @@ the Poisson in a fifth of simulated experiments (the residual checks
 passed it too), and then the tests of \code{\link[=estimate_interactions]{estimate_interactions()}} rejected
 true null models too often; fitting the negative binomial kept them close
 to their nominal error, at a small cost in power when the counts are
-truly Poisson. Continuous values: Gaussian, Gaussian with log link, Gamma with log link
-and lognormal if all values are positive; Gaussian, Gaussian with log
-link and Tweedie if there are zeros; Gaussian only if there are negative
-values. With an \code{offset} only the log-link candidates are kept. Use
-\code{response_types} when the detection is wrong (a density rounded to whole
-numbers is not a count) and \code{families} for other distributions (e.g.
-\code{\link[glmmTMB:nbinom2]{glmmTMB::beta_family()}} for proportions without a number of trials, such
-as cover).
+truly Poisson. The negative binomial with a variance proportional to the
+mean (NB1, the likelihood counterpart of the quasi-Poisson model that
+Szöcs and Schäfer (2015) recommend for counts) is not a default
+candidate: in simulated experiments with and without overdispersion, the
+tests of deviation and of equivalence rejected true hypotheses in up to
+6.4\% of the experiments (at the 5\% level) with NB2 alone and in up to
+6.9\% when NB1 and NB2 were chosen by AIC. Give it with \code{families = list(nbinom1 = glmmTMB::nbinom1())}. Continuous values: Gaussian,
+Gaussian with log link, Gamma with log link and lognormal if all values
+are positive; Gaussian, Gaussian with log link and Tweedie if there are
+zeros; Gaussian only if there are negative values. With an \code{offset} only
+the log-link candidates are kept. Use \code{response_types} when the detection
+is wrong (a density rounded to whole numbers is not a count) and
+\code{families} for other distributions (e.g. \code{\link[glmmTMB:nbinom2]{glmmTMB::beta_family()}} for
+proportions without a number of trials, such as cover).
 
 \strong{Optimiser.} A cell-means model has one parameter per treatment
 combination (and time), which can be more than the default limits of the
@@ -263,4 +272,9 @@ generalized linear mixed modeling. \emph{The R Journal}, 9(2), 378–400.
 Madge Pimentel, I., et al. (2025). Hypothesis-driven research on multiple
 stressors: An analytical framework for stressor interactions. \emph{Ecology
 and Evolution}, 15, e71959. \doi{10.1002/ece3.71959}
+
+Szöcs, E., & Schäfer, R. B. (2015). Ecotoxicology is not normal: A
+comparison of statistical approaches for analysis of count and proportion
+data in ecotoxicology. \emph{Environmental Science and Pollution Research},
+22, 13990–13999. \doi{10.1007/s11356-015-4579-3}
 }

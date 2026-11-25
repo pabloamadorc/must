@@ -22,12 +22,15 @@ reference:
   desc: >
     The steps of an analysis, in order: describe the design, fit the
     responses, choose the null models, estimate and classify the
-    interactions, compare the null models and report the methods.
+    interactions (of each response, or on the properties of a community),
+    compare the null models and report the methods.
   contents:
   - describe_design
   - fit_responses
   - suggest_null_models
   - estimate_interactions
+  - estimate_community
+  - test_community
   - must_interactions-methods
   - plot.must_interactions
   - classify_interactions

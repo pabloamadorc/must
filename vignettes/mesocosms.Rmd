@@ -244,6 +244,266 @@ multiply. From day 30 the effect of the insecticide is no longer detected,
 and no interaction is detected either. A community total can hide the loss
 of its most sensitive taxa.
 
+### Zooplankton community
+
+The analyses above take one response at a time. `estimate_community()` asks
+whether the stressors interact on the community as a whole, through two of
+its properties: the total density of its taxa and their richness, the
+expected number of taxa found in a sample. It needs a model for each taxon.
+Here they are the taxa of `polazzo_zooplankton` found in at least a quarter
+of the samples after the application, all fitted with a Tweedie
+distribution: their densities have many zeros, and the richness is computed
+from the probability of a zero that each model gives.
+
+```{r community-fit}
+zoo_taxa <- names(attr(polazzo_zooplankton, "taxa"))
+after <- polazzo_zooplankton$day > 0
+present <- vapply(zoo_taxa, function(taxon) mean(polazzo_zooplankton[[taxon]][after] > 0),
+                  numeric(1))
+common <- zoo_taxa[present >= 0.25]
+pz_design <- describe_design(polazzo_zooplankton, stressors, control, unit = "mesocosm",
+                             time = "day", baseline = list(insecticide = -5, herbicide = -5))
+pz_fit <- fit_responses(polazzo_zooplankton, common, pz_design,
+                        families = list(tweedie = glmmTMB::tweedie()),
+                        residual_checks = FALSE, seed = 1, quiet = TRUE)
+fitted <- common[vapply(pz_fit$fits, function(f) f$status == "ok", logical(1))]
+setdiff(common, fitted)
+```
+
+The ostracods, absent from the controls at most samplings, could not be
+fitted. `estimate_community()` does not leave a taxon out by itself, so the
+community analysed is that of the other `r length(fitted)` taxa, given in
+`taxa`:
+
+```{r community-estimate}
+community <- estimate_community(pz_fit, taxa = fitted, n_sim = 4000, seed = 2021)
+e <- community$estimates
+deviating <- e[e$component == "interaction" & e$status == "ok" & e$p_adjusted < 0.05, ]
+deviating[, c("response", "time", "stressors", "null_model", "observed", "expected",
+              "estimate", "p_adjusted")]
+```
+
+```{r community-numbers, include = FALSE}
+pick <- function(property, day, set, model) {
+  e[e$response == property & e$time == day & e$stressors == set & e$null_model == model &
+      e$component == "interaction", ]
+}
+density_taxa <- pick("abundance", "7", "insecticide x nutrients", "AD_taxa")
+density_ad <- pick("abundance", "7", "insecticide x nutrients", "AD")
+richness_ad <- pick("richness", "7", "herbicide x nutrients", "AD")
+richness_mu <- pick("richness", "7", "herbicide x nutrients", "MU")
+compositional <- e[e$response == "richness" & e$null_model == "AD_taxa" &
+                     e$component == "interaction", ]
+```
+
+Effects and interactions are relative changes of each property from the
+control (`scale = "response / control"`), and `observed` and `expected` give
+the property itself in the combination. Under the compositional null model
+of Thompson et al. (2018), `AD_taxa`, the stressors add their effects on
+each taxon, and the community they predict is compared with the one
+observed. On day 7, the insecticide and the nutrients together left a total
+density of `r round(density_taxa$observed)` (in the unit of the source) where
+the compositional model expects `r round(density_taxa$expected)` (adjusted p
+= `r signif(density_taxa$p_adjusted, 2)`), a deviation that the additive
+model of the total does not detect (adjusted p =
+`r signif(density_ad$p_adjusted, 2)`). The models of each taxon show where
+the density went (`observed` is the mean density with both stressors and
+`expected` the one that adding their effects predicts):
+
+```{r community-taxa}
+taxa_est <- estimate_interactions(pz_fit, null_models = "AD", inference = "delta")
+t7 <- taxa_est$estimates
+t7 <- t7[t7$time == "7" & t7$stressors == "insecticide x nutrients" &
+           t7$component == "interaction", c("response", "observed", "expected")]
+t7[order(-t7$expected), ]
+```
+
+The rotifer *Polyarthra*, which the insecticide alone multiplied while the
+cladocerans disappeared, and the copepod nauplii, which the nutrients alone
+multiplied, were far scarcer with both stressors than with either alone.
+
+The richness shows the other side of the argument of Thompson et al.
+(2018). On day 7, the herbicide and the nutrients each raised the richness
+alone, but together they left `r round(richness_ad$observed, 1)` taxa per
+sample, fewer than the `r round(richness_ad$expected, 1)` and
+`r round(richness_mu$expected, 1)` that the additive and multiplicative
+models of the richness expect (adjusted p =
+`r signif(richness_ad$p_adjusted, 2)` for both). In how many of the three
+mesocosms of each combination was each taxon found?
+
+```{r community-found}
+day7 <- polazzo_zooplankton[polazzo_zooplankton$day == 7 &
+                              polazzo_zooplankton$insecticide == "absent", ]
+cell <- paste(day7$herbicide, day7$nutrients, sep = " / ")
+found <- sapply(day7[fitted], function(x) tapply(x > 0, cell, sum))
+found
+lost <- colnames(found)[found["diuron / added", ] == 0 &
+                          pmax(found["diuron / ambient", ], found["absent / added", ]) > 0]
+```
+
+`r length(lost)` taxa found with one of the stressors alone
+(`r paste(attr(polazzo_zooplankton, "taxa")[lost], collapse = ", ")`) were
+absent from every mesocosm with both. The null models of the richness add or
+multiply the changes in the number of taxa, whichever the taxa: a taxon
+gained with each stressor alone counts twice, and a taxon that each stressor
+reduces without eliminating it is never expected to be lost. Whether the loss
+exceeds what the effects on each taxon imply is what the compositional
+models would tell, but here they cannot:
+
+```{r community-richness}
+richness7 <- e[e$response == "richness" & e$time == "7" &
+                 e$stressors == "herbicide x nutrients" & e$component == "interaction" &
+                 e$null_model %in% c("AD_taxa", "MU_taxa"), ]
+for (i in seq_len(nrow(richness7))) {
+  writeLines(strwrap(paste0(richness7$null_model[[i]], " (", richness7$status[[i]], "): ",
+                            richness7$reason[[i]]), width = 80))
+}
+```
+
+Under the additive compositional model, a taxon whose expected density with
+both stressors is close to zero, compared with its uncertainty, is expected
+to persist in some simulation draws and to be lost in others; the expected
+richness is then biased, and its tests reject true null models too often, so
+`estimate_community()` leaves it unestimated. With three mesocosms per
+combination that happened in `r sum(compositional$status == "not_estimable")`
+of the `r nrow(compositional)` sets and times. The multiplicative
+compositional model is not defined when a taxon absent from the controls
+appears with a stressor alone. The compositional model also has a blind spot
+of its own: a stressor that favours a taxon combined with one that eliminates
+it alone, whose expected effect cannot exceed the density of the taxon
+(Thompson et al. 2018); the means of each taxon, as above, show whether a
+deviation comes from such taxa.
+
+### The community as a whole
+
+`test_community()` tests a null model on all the taxa at once, as the
+multivariate generalised linear models that Szöcs et al. (2015) proposed for
+mesocosm experiments. Under the multiplicative null model, the default, each
+taxon gets a model with a log link, with and without the interaction of the
+stressors (without it, the effects of the stressors multiply on each taxon,
+as MU expects); the sum of the statistics of the taxa is the test of the
+community, with p-values from resampling whole mesocosms under the null
+model. Counts are modelled with
+the negative binomial models of the package mvabund, which suits the
+macroinvertebrates: here the taxa found in at least half of the samples
+after the application (and without missing counts).
+
+```{r community-test-setup, include = FALSE}
+has_mvabund <- requireNamespace("mvabund", quietly = TRUE)
+```
+
+```{r community-test, eval = has_mvabund}
+macro_taxa <- names(attr(polazzo_macroinvertebrates, "taxa"))
+after <- polazzo_macroinvertebrates$day > 0
+frequent <- vapply(macro_taxa, function(taxon) {
+  mean(polazzo_macroinvertebrates[[taxon]][after] > 0)
+}, numeric(1))
+complete <- vapply(macro_taxa, function(taxon) !anyNA(polazzo_macroinvertebrates[[taxon]]),
+                   logical(1))
+macro_common <- macro_taxa[frequent >= 0.5 & complete]
+community_test <- test_community(polazzo_macroinvertebrates, macro_common, macro_design,
+                                 n_boot = 499, seed = 2021, quiet = TRUE)
+community_test
+```
+
+```{r community-test-missing, eval = !has_mvabund, echo = FALSE, results = "asis"}
+cat("*This part needs the package mvabund, which is not installed.*\n")
+```
+
+Each row is a test of the community: whether any of its taxa deviates from
+MU, with one degree of freedom per sampling time. `$taxa` says which taxa
+deviate, with their net interaction under MU on the log scale (positive when
+the combination has more individuals than MU expects) and a p-value adjusted
+across the taxa of the test:
+
+```{r community-test-taxa, eval = has_mvabund}
+taxa_test <- community_test$taxa
+taxa_test[taxa_test$p_adjusted < 0.05, ]
+```
+
+```{r community-test-numbers, eval = has_mvabund, echo = FALSE, results = "asis"}
+tests <- community_test$tests
+n_deviating <- sum(tests$p_adjusted < 0.05, na.rm = TRUE)
+cat(sprintf(
+  paste("Of the %d tests of the community, %s detected a deviation from MU once the",
+        "p-values were adjusted across sets and times (smallest adjusted p = %s).\n"),
+  nrow(tests), if (n_deviating == 0L) "none" else as.character(n_deviating),
+  format(signif(min(tests$p_adjusted, na.rm = TRUE), 2))
+))
+```
+
+The zooplankton of `polazzo_zooplankton` are densities, and the source does
+not give the volumes that would turn them back into counts. Densities that
+come with their counts are tested from the counts, with the volume of each
+sample as `effort` (an offset in the models of the counts); without them,
+`family = "tweedie"` models the densities themselves with a Tweedie
+distribution, whose power is estimated for each taxon, and resamples the
+mesocosms with the PIT-trap (Warton et al. 2017). Here, the taxa analysed
+above:
+
+```{r community-test-zoo}
+zoo_test <- test_community(polazzo_zooplankton, fitted, pz_design, family = "tweedie",
+                           n_boot = 199, seed = 2021, quiet = TRUE)
+print(zoo_test, n = 20)
+```
+
+```{r community-test-zoo-numbers, echo = FALSE, results = "asis"}
+zoo_tests <- zoo_test$tests
+zoo_deviating <- sum(zoo_tests$p_adjusted < 0.05, na.rm = TRUE)
+zoo_power <- zoo_test$diagnostics$power$power
+cat(sprintf(
+  paste("The powers of the taxa ranged from %s to %s (`$diagnostics$power`). %s of the %d",
+        "tests of the zooplankton community detected a deviation from MU once the",
+        "p-values were adjusted (smallest adjusted p = %s).\n"),
+  format(round(min(zoo_power, na.rm = TRUE), 2)), format(round(max(zoo_power, na.rm = TRUE), 2)),
+  if (zoo_deviating == 0L) "None" else as.character(zoo_deviating), nrow(zoo_tests),
+  format(signif(min(zoo_tests$p_adjusted, na.rm = TRUE), 2))
+))
+```
+
+The additive null model can be tested on every taxon too:
+`null_models = "AD_taxa"` adds the effects of the stressors on each taxon (a
+model with an identity link and means that cannot be negative) and expects a
+taxon that the sum of the effects eliminates to be absent, the compositional
+null model of Thompson et al. (2018) that `estimate_community()` applies to
+the properties. On day 7, when the insecticide and the nutrients together
+left a total density far below what that model expects:
+
+```{r community-test-zoo-ad}
+zoo7 <- polazzo_zooplankton[polazzo_zooplankton$day == 7, ]
+zoo7_design <- describe_design(zoo7, stressors, control, unit = "mesocosm")
+zoo7_test <- test_community(zoo7, fitted, zoo7_design, family = "tweedie",
+                            null_models = "AD_taxa", n_boot = 199, seed = 2021, quiet = TRUE)
+zoo7_test
+```
+
+```{r community-test-zoo-ad-numbers, echo = FALSE, results = "asis"}
+pair <- zoo7_test$tests[zoo7_test$tests$stressors == "insecticide x nutrients", ]
+pair_taxa <- zoo7_test$taxa[zoo7_test$taxa$set_id == pair$set_id, ]
+pair_taxa <- pair_taxa[order(-pair_taxa$statistic), ]
+ordinal <- c("first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth",
+             "ninth", "tenth", "eleventh", "twelfth")
+rank_of <- function(taxon) ordinal[[match(taxon, pair_taxa$taxon)]]
+p_of <- function(taxon) format(signif(pair_taxa$p_adjusted[pair_taxa$taxon == taxon], 2))
+cat(sprintf(
+  paste("For that pair the test of the community gave an adjusted p of %s. *%s* and the",
+        "nauplii, whose losses made the deviation of the total density, ranked %s and %s",
+        "of the %d taxa by their statistics (adjusted p within the test %s and %s): the",
+        "statistic gives every taxon the same weight, whatever its density, so the losses",
+        "of two abundant taxa count no more than small deviations of rare ones. The test",
+        "of the community and the total density do not test the same thing.\n"),
+  format(signif(pair$p_adjusted, 2)), attr(polazzo_zooplankton, "taxa")[["polyarthra"]],
+  rank_of("polyarthra"), rank_of("nauplii"), nrow(pair_taxa), p_of("polyarthra"),
+  p_of("nauplii")
+))
+```
+
+The test of the community answers a different question from
+`estimate_community()`: whether the community deviates, through any of its
+taxa, not how its total or its richness change. Its models give every taxon
+the same distribution and no random effects, unlike those of
+`fit_responses()`.
+
 ## Insecticide and heat
 
 Hermann et al. (2024) used 24 outdoor mesocosms, four per combination of a
@@ -445,6 +705,12 @@ zoo_report$decisions[!zoo_report$decisions$source %in% c("default", "recorded"),
 * **Totals can hide sensitive taxa.** The total of the macroinvertebrates
   did not change while chlorpyrifos eliminated the mayfly *Cloeon*, whose
   interactions could not be measured on that day.
+* **Communities need their own null model.** On the zooplankton of Polazzo
+  & Rico (2021), the compositional model flagged a loss of density that the
+  model of the total did not detect. The null models of the richness itself
+  flagged a loss of taxa, but with three mesocosms per combination the
+  compositional model could not say whether it exceeds what the effects on
+  each taxon imply.
 
 ## References
 
@@ -475,3 +741,20 @@ Schäfer, R. B., & Piggott, J. J. (2018). Advancing understanding and
 prediction in multiple stressor research through a mechanistic basis for null
 models. *Global Change Biology*, 24(5), 1817–1826.
 <https://doi.org/10.1111/gcb.14073>
+
+Szöcs, E., Van den Brink, P. J., Lagadic, L., Caquet, T., Roucaute, M.,
+Auber, A., Bayona, Y., Liess, M., Ebke, P., Ippolito, A., ter Braak, C. J. F.,
+Brock, T. C. M., & Schäfer, R. B. (2015). Analysing chemical-induced changes in
+macroinvertebrate communities in aquatic mesocosm experiments: a comparison of
+methods. *Ecotoxicology*, 24, 760–769.
+<https://doi.org/10.1007/s10646-015-1421-0>
+
+Thompson, P. L., MacLennan, M. M., & Vinebrooke, R. D. (2018). An improved
+null model for assessing the net effects of multiple stressors on
+communities. *Global Change Biology*, 24(1), 517–525.
+<https://doi.org/10.1111/gcb.13852>
+
+Warton, D. I., Thibaut, L., & Wang, Y. A. (2017). The PIT-trap—A "model-free"
+bootstrap procedure for inference about regression models with discrete,
+multivariate responses. *PLoS ONE*, 12(7), e0181790.
+<https://doi.org/10.1371/journal.pone.0181790>
